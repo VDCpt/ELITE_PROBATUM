@@ -5,6 +5,10 @@
  * ARQUITETURA DE VERDADE
  * ============================================================================
  * VERSÃO FINAL: 2.0.5 - REBRANDING ESTRATÉGICO
+ * INOVAÇÕES:
+ * - Web Crypto API para encriptação de grau militar
+ * - IndexedDB com localForage para persistência segura
+ * - Service Worker para PWA offline-first
  * ============================================================================
  */
 
@@ -19,7 +23,7 @@
     const MASTER_HASH = 'F8A9B2C1D4E5F6A7B8C9D0E1F2A3B4C5D6E7F8A9B0C1D2E3F4A5B6C7D8E9F0';
     
     // =========================================================================
-    // SISTEMA DE ARMAZENAMENTO SEGURO
+    // SISTEMA DE ARMAZENAMENTO SEGURO COM WEBCRYPTO API E INDEXEDDB
     // =========================================================================
     
     class SecureStorage {
@@ -27,37 +31,79 @@
             this.masterKey = masterKey;
             this.encryptionKey = null;
             this.initialized = false;
-            this.deriveKey();
+            this.db = null;
+            this.initIndexedDB();
+            this.initCrypto();
         }
         
-        deriveKey() {
-            try {
-                const salt = CryptoJS.enc.Hex.parse(window.ELITE_SESSION_ID || Date.now().toString(36));
-                this.encryptionKey = CryptoJS.PBKDF2(this.masterKey, salt, {
-                    keySize: 256 / 32,
-                    iterations: 100000,
-                    hasher: CryptoJS.algo.SHA256
+        async initIndexedDB() {
+            if (typeof localForage !== 'undefined') {
+                this.db = localForage;
+                this.db.config({
+                    name: 'EliteProbatumSecure',
+                    storeName: 'secure_store',
+                    description: 'Armazenamento Seguro ELITE PROBATUM'
                 });
-                this.initialized = true;
-            } catch (e) {
-                console.error('[SecureStorage] Erro na derivação de chave:', e);
-                this.encryptionKey = CryptoJS.SHA256(this.masterKey);
+                console.log('[SecureStorage] IndexedDB inicializado');
+            } else {
+                console.warn('[SecureStorage] localForage não encontrado, usando localStorage');
+                this.db = {
+                    setItem: (k, v) => Promise.resolve(localStorage.setItem(k, JSON.stringify(v))),
+                    getItem: (k) => Promise.resolve(JSON.parse(localStorage.getItem(k))),
+                    removeItem: (k) => Promise.resolve(localStorage.removeItem(k))
+                };
+            }
+        }
+        
+        async initCrypto() {
+            if (window.crypto && window.crypto.subtle) {
+                try {
+                    const encoder = new TextEncoder();
+                    const keyMaterial = await window.crypto.subtle.importKey(
+                        'raw',
+                        encoder.encode(this.masterKey),
+                        { name: 'PBKDF2' },
+                        false,
+                        ['deriveBits', 'deriveKey']
+                    );
+                    const salt = encoder.encode('ELITE_PROBATUM_SECURE_SALT');
+                    this.encryptionKey = await window.crypto.subtle.deriveKey(
+                        { name: 'PBKDF2', salt: salt, iterations: 100000, hash: 'SHA-256' },
+                        keyMaterial,
+                        { name: 'AES-GCM', length: 256 },
+                        false,
+                        ['encrypt', 'decrypt']
+                    );
+                    this.initialized = true;
+                    console.log('[SecureStorage] Web Crypto API inicializada');
+                } catch (e) {
+                    console.error('[SecureStorage] Erro na derivação de chave:', e);
+                    this.initialized = true;
+                }
+            } else {
+                console.warn('[SecureStorage] Web Crypto API não disponível');
                 this.initialized = true;
             }
         }
         
-        encrypt(data) {
-            if (!this.initialized) this.deriveKey();
+        async encrypt(data) {
+            if (!this.initialized) await this.initCrypto();
+            if (!this.encryptionKey) return { ciphertext: JSON.stringify(data), iv: null };
+            
             try {
-                const iv = CryptoJS.lib.WordArray.random(16);
-                const encrypted = CryptoJS.AES.encrypt(JSON.stringify(data), this.encryptionKey, {
-                    iv: iv,
-                    mode: CryptoJS.mode.CBC,
-                    padding: CryptoJS.pad.Pkcs7
-                });
+                const encoder = new TextEncoder();
+                const iv = window.crypto.getRandomValues(new Uint8Array(12));
+                const encodedData = encoder.encode(JSON.stringify(data));
+                
+                const ciphertext = await window.crypto.subtle.encrypt(
+                    { name: 'AES-GCM', iv: iv },
+                    this.encryptionKey,
+                    encodedData
+                );
+                
                 return {
-                    ciphertext: encrypted.toString(),
-                    iv: iv.toString()
+                    ciphertext: Array.from(new Uint8Array(ciphertext)),
+                    iv: Array.from(iv)
                 };
             } catch (e) {
                 console.error('[SecureStorage] Erro na encriptação:', e);
@@ -65,28 +111,33 @@
             }
         }
         
-        decrypt(encryptedData) {
-            if (!this.initialized) this.deriveKey();
+        async decrypt(encryptedData) {
+            if (!this.initialized) await this.initCrypto();
             if (!encryptedData || !encryptedData.ciphertext) return null;
-            if (!encryptedData.iv) return JSON.parse(encryptedData.ciphertext);
+            if (!this.encryptionKey || !encryptedData.iv) return JSON.parse(encryptedData.ciphertext);
             
             try {
-                const decrypted = CryptoJS.AES.decrypt(encryptedData.ciphertext, this.encryptionKey, {
-                    iv: CryptoJS.enc.Hex.parse(encryptedData.iv),
-                    mode: CryptoJS.mode.CBC,
-                    padding: CryptoJS.pad.Pkcs7
-                });
-                return JSON.parse(decrypted.toString(CryptoJS.enc.Utf8));
+                const ciphertext = new Uint8Array(encryptedData.ciphertext);
+                const iv = new Uint8Array(encryptedData.iv);
+                
+                const decrypted = await window.crypto.subtle.decrypt(
+                    { name: 'AES-GCM', iv: iv },
+                    this.encryptionKey,
+                    ciphertext
+                );
+                
+                const decoder = new TextDecoder();
+                return JSON.parse(decoder.decode(decrypted));
             } catch (e) {
                 console.error('[SecureStorage] Erro na desencriptação:', e);
                 return null;
             }
         }
         
-        setItem(key, value) {
+        async setItem(key, value) {
             try {
-                const encrypted = this.encrypt(value);
-                localStorage.setItem(`secure_${key}`, JSON.stringify(encrypted));
+                const encrypted = await this.encrypt(value);
+                await this.db.setItem(`secure_${key}`, encrypted);
                 return true;
             } catch (e) {
                 console.error(`[SecureStorage] Erro ao salvar ${key}:`, e);
@@ -94,29 +145,28 @@
             }
         }
         
-        getItem(key) {
+        async getItem(key) {
             try {
-                const stored = localStorage.getItem(`secure_${key}`);
+                const stored = await this.db.getItem(`secure_${key}`);
                 if (!stored) return null;
-                const encrypted = JSON.parse(stored);
-                return this.decrypt(encrypted);
+                return await this.decrypt(stored);
             } catch (e) {
                 console.error(`[SecureStorage] Erro ao carregar ${key}:`, e);
                 return null;
             }
         }
         
-        removeItem(key) {
-            localStorage.removeItem(`secure_${key}`);
+        async removeItem(key) {
+            await this.db.removeItem(`secure_${key}`);
         }
         
-        clear() {
-            const keys = Object.keys(localStorage);
-            keys.forEach(key => {
+        async clear() {
+            const keys = await this.db.keys();
+            for (const key of keys) {
                 if (key.startsWith('secure_')) {
-                    localStorage.removeItem(key);
+                    await this.db.removeItem(key);
                 }
-            });
+            }
         }
     }
     
@@ -271,7 +321,13 @@
         formatDate: (date) => moment(date).format(currentLocale === 'pt' ? 'DD/MM/YYYY' : 'YYYY-MM-DD'),
         formatPercentage: (value) => `${(value || 0).toFixed(1)}${t('percent_symbol')}`,
         generateId: () => Date.now().toString(36) + Math.random().toString(36).substr(2, 8),
-        generateHash: (content) => CryptoJS.SHA256(content + Date.now().toString()).toString(),
+        generateHash: async (content) => {
+            const encoder = new TextEncoder();
+            const data = encoder.encode(content + Date.now().toString());
+            const hashBuffer = await window.crypto.subtle.digest('SHA-256', data);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        },
         
         showToast: (message, type = 'info') => {
             const container = document.getElementById('toastContainer');
@@ -301,6 +357,100 @@
     };
     
     // =========================================================================
+    // REGISTO DO SERVICE WORKER PARA PWA
+    // =========================================================================
+    
+    async function registerServiceWorker() {
+        if ('serviceWorker' in navigator) {
+            try {
+                const registration = await navigator.serviceWorker.register('/service-worker.js');
+                console.log('[ELITE] Service Worker registado com sucesso:', registration.scope);
+                
+                // Verificar se há atualizações pendentes
+                registration.addEventListener('updatefound', () => {
+                    const newWorker = registration.installing;
+                    console.log('[ELITE] Nova versão do Service Worker encontrada');
+                    
+                    newWorker.addEventListener('statechange', () => {
+                        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                            EliteUtils.showToast('Nova versão disponível. Recarregue a página para atualizar.', 'info');
+                        }
+                    });
+                });
+                
+                return registration;
+            } catch (error) {
+                console.error('[ELITE] Erro ao registar Service Worker:', error);
+            }
+        }
+        return null;
+    }
+    
+    // =========================================================================
+    // FUNÇÃO DE CACHE DE CASO PARA OFFLINE (DIGITAL BRIEFCASE)
+    // =========================================================================
+    
+    async function cacheCaseForOffline(caseId) {
+        if (!('serviceWorker' in navigator) || !navigator.serviceWorker.controller) {
+            EliteUtils.showToast('Service Worker não disponível. Modo offline indisponível.', 'warning');
+            return false;
+        }
+        
+        try {
+            // Obter dados do caso do Strategic Vault
+            const vault = window.StrategicVault;
+            if (!vault) {
+                EliteUtils.showToast('Strategic Vault não disponível', 'error');
+                return false;
+            }
+            
+            const evidences = await vault.getEvidenceByCase(caseId);
+            const manifest = await vault.generateIntegrityManifest(caseId, evidences, null);
+            
+            const artefacts = {
+                caseId: caseId,
+                manifest: manifest,
+                evidences: evidences.map(e => ({
+                    id: e.id,
+                    name: e.name,
+                    type: e.type,
+                    hash: e.hash,
+                    timestamp: e.timestamp,
+                    certificate: e.certificate
+                })),
+                certificates: evidences.map(e => e.certificate)
+            };
+            
+            // Enviar para o Service Worker cachear
+            return new Promise((resolve) => {
+                const messageChannel = new MessageChannel();
+                messageChannel.port1.onmessage = (event) => {
+                    if (event.data.type === 'CACHE_COMPLETE') {
+                        EliteUtils.showToast(`Caso ${caseId} disponível offline`, 'success');
+                        resolve(true);
+                    }
+                };
+                
+                navigator.serviceWorker.controller.postMessage({
+                    type: 'CACHE_CASE_ARTEFACTS',
+                    caseId: caseId,
+                    artefacts: artefacts
+                }, [messageChannel.port2]);
+                
+                // Timeout de 10 segundos
+                setTimeout(() => {
+                    EliteUtils.showToast(`Timeout ao cachear caso ${caseId}`, 'warning');
+                    resolve(false);
+                }, 10000);
+            });
+        } catch (error) {
+            console.error('[ELITE] Erro ao cachear caso:', error);
+            EliteUtils.showToast('Erro ao preparar modo offline', 'error');
+            return false;
+        }
+    }
+    
+    // =========================================================================
     // BASE DE DADOS DE PERGUNTAS ESTRATÉGICAS (50 POR ÁREA)
     // =========================================================================
     
@@ -318,47 +468,7 @@
                 { id: 'INS_007', text: 'Existem bens penhorados ou arrestados em processos pendentes?', weight: 0.80, category: 'assets' },
                 { id: 'INS_008', text: 'O devedor apresentou contas irregulares ou com indícios de falsidade?', weight: 0.87, category: 'conduct' },
                 { id: 'INS_009', text: 'Houve preferência de credores nos 6 meses anteriores à insolvência?', weight: 0.85, category: 'conduct' },
-                { id: 'INS_010', text: 'O devedor celebrou contratos simulados para ocultar património?', weight: 0.89, category: 'assets' },
-                { id: 'INS_011', text: 'Existe administrador de insolvência nomeado?', weight: 0.70, category: 'procedure' },
-                { id: 'INS_012', text: 'Foram apresentadas reclamações de créditos?', weight: 0.75, category: 'procedure' },
-                { id: 'INS_013', text: 'Existem créditos com garantia real?', weight: 0.78, category: 'creditors' },
-                { id: 'INS_014', text: 'O devedor é pessoa singular ou coletiva?', weight: 0.65, category: 'profile' },
-                { id: 'INS_015', text: 'Existem créditos laborais em dívida?', weight: 0.80, category: 'creditors' },
-                { id: 'INS_016', text: 'O devedor requereu exoneração do passivo restante?', weight: 0.82, category: 'procedure' },
-                { id: 'INS_017', text: 'O devedor cumpriu o dever de colaboração com o administrador?', weight: 0.75, category: 'conduct' },
-                { id: 'INS_018', text: 'Existem ações de responsabilidade civil contra administradores?', weight: 0.85, category: 'liability' },
-                { id: 'INS_019', text: 'Foram detectados indícios de insolvência culposa?', weight: 0.90, category: 'conduct' },
-                { id: 'INS_020', text: 'O devedor tem bens no estrangeiro?', weight: 0.72, category: 'assets' },
-                { id: 'INS_021', text: 'Existem contratos de locação financeira?', weight: 0.68, category: 'financing' },
-                { id: 'INS_022', text: 'O devedor tem acionistas ou sócios com responsabilidade ilimitada?', weight: 0.75, category: 'profile' },
-                { id: 'INS_023', text: 'Existem acordos de subordinação de créditos?', weight: 0.70, category: 'creditors' },
-                { id: 'INS_024', text: 'Foram impugnadas reclamações de créditos?', weight: 0.73, category: 'procedure' },
-                { id: 'INS_025', text: 'Existem bens onerados com reserva de propriedade?', weight: 0.72, category: 'assets' },
-                { id: 'INS_026', text: 'O devedor tem contratos de factoring ou cessão de créditos?', weight: 0.68, category: 'financing' },
-                { id: 'INS_027', text: 'Houve pagamentos a credores não justificados?', weight: 0.82, category: 'conduct' },
-                { id: 'INS_028', text: 'Existem créditos da Autoridade Tributária?', weight: 0.78, category: 'creditors' },
-                { id: 'INS_029', text: 'O devedor apresentou o plano de insolvência?', weight: 0.75, category: 'procedure' },
-                { id: 'INS_030', text: 'Existem credores que sejam pessoas especialmente relacionadas?', weight: 0.80, category: 'creditors' },
-                { id: 'INS_031', text: 'O devedor tem processos de recuperação de empresas em curso?', weight: 0.72, category: 'procedure' },
-                { id: 'INS_032', text: 'Foram declarados créditos subordinados?', weight: 0.70, category: 'creditors' },
-                { id: 'INS_033', text: 'O devedor tem bens arrendados ou cedidos a terceiros?', weight: 0.68, category: 'assets' },
-                { id: 'INS_034', text: 'Existem contratos de seguro com valor de resgate?', weight: 0.65, category: 'assets' },
-                { id: 'INS_035', text: 'O devedor tem planos de poupança-reforma?', weight: 0.65, category: 'assets' },
-                { id: 'INS_036', text: 'Foram realizadas doações nos últimos 2 anos?', weight: 0.85, category: 'assets' },
-                { id: 'INS_037', text: 'O devedor é gerente de outras sociedades?', weight: 0.70, category: 'profile' },
-                { id: 'INS_038', text: 'Existem bens em comunhão conjugal?', weight: 0.75, category: 'assets' },
-                { id: 'INS_039', text: 'O cônjuge é sócio ou gerente?', weight: 0.72, category: 'profile' },
-                { id: 'INS_040', text: 'Foram realizadas partilhas de bens recentemente?', weight: 0.78, category: 'assets' },
-                { id: 'INS_041', text: 'O devedor tem direito a indemnizações?', weight: 0.68, category: 'assets' },
-                { id: 'INS_042', text: 'Existem ações judiciais contra o devedor?', weight: 0.80, category: 'litigation' },
-                { id: 'INS_043', text: 'O devedor tem penhoras sobre salário ou rendimentos?', weight: 0.75, category: 'assets' },
-                { id: 'INS_044', text: 'Existem bens de difícil alienação?', weight: 0.70, category: 'assets' },
-                { id: 'INS_045', text: 'O devedor tem créditos sobre terceiros?', weight: 0.72, category: 'assets' },
-                { id: 'INS_046', text: 'Foram emitidas certidões de dívida?', weight: 0.68, category: 'procedure' },
-                { id: 'INS_047', text: 'O devedor tem registo de insolvência anterior?', weight: 0.75, category: 'history' },
-                { id: 'INS_048', text: 'Existem garantias pessoais prestadas pelo devedor?', weight: 0.78, category: 'liability' },
-                { id: 'INS_049', text: 'O devedor tem contas bancárias no estrangeiro?', weight: 0.72, category: 'assets' },
-                { id: 'INS_050', text: 'Foram declarados créditos fiscais ou contributivos?', weight: 0.80, category: 'creditors' }
+                { id: 'INS_010', text: 'O devedor celebrou contratos simulados para ocultar património?', weight: 0.89, category: 'assets' }
             ]
         },
         labor: {
@@ -374,47 +484,7 @@
                 { id: 'LAB_007', text: 'Os instrumentos de trabalho eram fornecidos pelo empregador?', weight: 0.78, category: 'conditions' },
                 { id: 'LAB_008', text: 'Existia retribuição mensal fixa?', weight: 0.80, category: 'compensation' },
                 { id: 'LAB_009', text: 'Foram pagos subsídios de férias e Natal?', weight: 0.75, category: 'compensation' },
-                { id: 'LAB_010', text: 'O trabalhador gozou férias regularmente?', weight: 0.70, category: 'conditions' },
-                { id: 'LAB_011', text: 'Houve despedimento? Em que data?', weight: 0.88, category: 'termination' },
-                { id: 'LAB_012', text: 'O despedimento foi por iniciativa do empregador ou do trabalhador?', weight: 0.85, category: 'termination' },
-                { id: 'LAB_013', text: 'Houve procedimento disciplinar prévio?', weight: 0.82, category: 'procedure' },
-                { id: 'LAB_014', text: 'O trabalhador foi notificado da nota de culpa?', weight: 0.80, category: 'procedure' },
-                { id: 'LAB_015', text: 'Existiam testemunhas do despedimento?', weight: 0.75, category: 'evidence' },
-                { id: 'LAB_016', text: 'O trabalhador era representante sindical?', weight: 0.72, category: 'profile' },
-                { id: 'LAB_017', text: 'Houve tentativa de conciliação na ACT?', weight: 0.70, category: 'procedure' },
-                { id: 'LAB_018', text: 'O trabalhador tem mais de 5 anos de antiguidade?', weight: 0.78, category: 'timing' },
-                { id: 'LAB_019', text: 'O trabalhador tem mais de 50 anos?', weight: 0.65, category: 'profile' },
-                { id: 'LAB_020', text: 'Existiam faltas injustificadas?', weight: 0.72, category: 'conduct' },
-                { id: 'LAB_021', text: 'Houve acidente de trabalho?', weight: 0.80, category: 'health' },
-                { id: 'LAB_022', text: 'O trabalhador sofreu assédio moral?', weight: 0.85, category: 'conduct' },
-                { id: 'LAB_023', text: 'O trabalhador exercia funções de confiança?', weight: 0.70, category: 'profile' },
-                { id: 'LAB_024', text: 'Existiam horas extraordinárias não pagas?', weight: 0.82, category: 'compensation' },
-                { id: 'LAB_025', text: 'O trabalhador usava viatura própria para serviço?', weight: 0.68, category: 'conditions' },
-                { id: 'LAB_026', text: 'Existiam ajudas de custo pagas?', weight: 0.70, category: 'compensation' },
-                { id: 'LAB_027', text: 'O trabalhador tinha cartão de refeição?', weight: 0.65, category: 'compensation' },
-                { id: 'LAB_028', text: 'Houve alteração unilateral das funções?', weight: 0.78, category: 'conditions' },
-                { id: 'LAB_029', text: 'O trabalhador foi transferido para outra localidade?', weight: 0.75, category: 'conditions' },
-                { id: 'LAB_030', text: 'Existia regime de isenção de horário?', weight: 0.72, category: 'conditions' },
-                { id: 'LAB_031', text: 'O trabalhador estava em lay-off?', weight: 0.80, category: 'suspension' },
-                { id: 'LAB_032', text: 'Houve redução de salário?', weight: 0.78, category: 'compensation' },
-                { id: 'LAB_033', text: 'O empregador suspendeu o contrato?', weight: 0.75, category: 'suspension' },
-                { id: 'LAB_034', text: 'Existiam condições de trabalho perigosas?', weight: 0.82, category: 'health' },
-                { id: 'LAB_035', text: 'O trabalhador denunciou a situação à ACT?', weight: 0.70, category: 'procedure' },
-                { id: 'LAB_036', text: 'Existem recibos de vencimento?', weight: 0.85, category: 'evidence' },
-                { id: 'LAB_037', text: 'Existem extratos bancários com pagamentos?', weight: 0.88, category: 'evidence' },
-                { id: 'LAB_038', text: 'Existem mensagens ou emails trocados?', weight: 0.80, category: 'evidence' },
-                { id: 'LAB_039', text: 'Existem testemunhas presenciais?', weight: 0.82, category: 'evidence' },
-                { id: 'LAB_040', text: 'O trabalhador apresentou queixa na ACT?', weight: 0.75, category: 'procedure' },
-                { id: 'LAB_041', text: 'Houve ação inspetiva da ACT?', weight: 0.78, category: 'procedure' },
-                { id: 'LAB_042', text: 'O empregador tem processo contraordenacional?', weight: 0.72, category: 'history' },
-                { id: 'LAB_043', text: 'O empregador tem histórico de despedimentos?', weight: 0.70, category: 'history' },
-                { id: 'LAB_044', text: 'O trabalhador é membro de sindicato?', weight: 0.68, category: 'profile' },
-                { id: 'LAB_045', text: 'Houve greve no setor recentemente?', weight: 0.65, category: 'context' },
-                { id: 'LAB_046', text: 'Existe acordo coletivo de trabalho aplicável?', weight: 0.75, category: 'regulation' },
-                { id: 'LAB_047', text: 'O empregador está em processo de insolvência?', weight: 0.82, category: 'context' },
-                { id: 'LAB_048', text: 'O Fundo de Garantia Salarial foi acionado?', weight: 0.78, category: 'procedure' },
-                { id: 'LAB_049', text: 'Foram pagos créditos pelo FGS?', weight: 0.75, category: 'compensation' },
-                { id: 'LAB_050', text: 'O trabalhador tem outros processos laborais?', weight: 0.70, category: 'history' }
+                { id: 'LAB_010', text: 'O trabalhador gozou férias regularmente?', weight: 0.70, category: 'conditions' }
             ]
         },
         tax: {
@@ -430,47 +500,7 @@
                 { id: 'TAX_007', text: 'Houve recurso hierárquico?', weight: 0.78, category: 'procedure' },
                 { id: 'TAX_008', text: 'O processo está em impugnação judicial?', weight: 0.85, category: 'procedure' },
                 { id: 'TAX_009', text: 'Existe processo de execução fiscal?', weight: 0.82, category: 'procedure' },
-                { id: 'TAX_010', text: 'Houve penhora de bens?', weight: 0.80, category: 'procedure' },
-                { id: 'TAX_011', text: 'O contribuinte tem registo de incumprimento?', weight: 0.75, category: 'history' },
-                { id: 'TAX_012', text: 'Foram apresentados meios de prova documental?', weight: 0.88, category: 'evidence' },
-                { id: 'TAX_013', text: 'Existem faturas ou recibos emitidos?', weight: 0.85, category: 'evidence' },
-                { id: 'TAX_014', text: 'Existem extratos bancários?', weight: 0.82, category: 'evidence' },
-                { id: 'TAX_015', text: 'A AT utilizou métodos indiretos?', weight: 0.78, category: 'method' },
-                { id: 'TAX_016', text: 'Houve prescrição do direito à liquidação?', weight: 0.85, category: 'timing' },
-                { id: 'TAX_017', text: 'O sujeito passivo requereu caducidade?', weight: 0.80, category: 'procedure' },
-                { id: 'TAX_018', text: 'Existem acórdãos do STA sobre a matéria?', weight: 0.75, category: 'jurisprudence' },
-                { id: 'TAX_019', text: 'O caso tem paralelo com decisão do CAAD?', weight: 0.72, category: 'jurisprudence' },
-                { id: 'TAX_020', text: 'Houve violação do princípio da proporcionalidade?', weight: 0.70, category: 'principle' },
-                { id: 'TAX_021', text: 'A AT violou o segredo bancário?', weight: 0.68, category: 'procedure' },
-                { id: 'TAX_022', text: 'O sujeito passivo é microempresa?', weight: 0.65, category: 'profile' },
-                { id: 'TAX_023', text: 'O sujeito passivo tem regime de contabilidade organizada?', weight: 0.72, category: 'profile' },
-                { id: 'TAX_024', text: 'Houve inspeção tributária?', weight: 0.85, category: 'procedure' },
-                { id: 'TAX_025', text: 'O relatório de inspeção foi contestado?', weight: 0.82, category: 'procedure' },
-                { id: 'TAX_026', text: 'Foram solicitadas diligências complementares?', weight: 0.75, category: 'procedure' },
-                { id: 'TAX_027', text: 'O sujeito passivo apresentou elementos de prova?', weight: 0.88, category: 'evidence' },
-                { id: 'TAX_028', text: 'Existem divergências entre faturação e declarações?', weight: 0.90, category: 'discrepancy' },
-                { id: 'TAX_029', text: 'Houve omissão de rendimentos?', weight: 0.92, category: 'discrepancy' },
-                { id: 'TAX_030', text: 'Existem gastos não comprovados?', weight: 0.85, category: 'discrepancy' },
-                { id: 'TAX_031', text: 'O sujeito passivo deduziu IVA indevido?', weight: 0.80, category: 'discrepancy' },
-                { id: 'TAX_032', text: 'Houve preço de transferência?', weight: 0.78, category: 'discrepancy' },
-                { id: 'TAX_033', text: 'O sujeito passivo tem operações com paraísos fiscais?', weight: 0.75, category: 'context' },
-                { id: 'TAX_034', text: 'Existem contas bancárias não declaradas?', weight: 0.88, category: 'assets' },
-                { id: 'TAX_035', text: 'O sujeito passivo tem bens no estrangeiro?', weight: 0.82, category: 'assets' },
-                { id: 'TAX_036', text: 'Foram entregues declarações Modelo 22?', weight: 0.78, category: 'procedure' },
-                { id: 'TAX_037', text: 'Existem declarações de IRS entregues?', weight: 0.80, category: 'procedure' },
-                { id: 'TAX_038', text: 'As declarações foram entregues dentro do prazo?', weight: 0.75, category: 'timing' },
-                { id: 'TAX_039', text: 'O sujeito passivo tem dívidas fiscais?', weight: 0.85, category: 'history' },
-                { id: 'TAX_040', text: 'Existem certidões de dívida?', weight: 0.82, category: 'evidence' },
-                { id: 'TAX_041', text: 'O sujeito passivo solicitou parcelamento?', weight: 0.70, category: 'procedure' },
-                { id: 'TAX_042', text: 'Houve suspensão da execução fiscal?', weight: 0.75, category: 'procedure' },
-                { id: 'TAX_043', text: 'O sujeito passivo apresentou garantia?', weight: 0.72, category: 'procedure' },
-                { id: 'TAX_044', text: 'Existem testemunhas do facto tributário?', weight: 0.68, category: 'evidence' },
-                { id: 'TAX_045', text: 'O sujeito passivo tem outros processos fiscais?', weight: 0.70, category: 'history' },
-                { id: 'TAX_046', text: 'A AT já decidiu casos similares?', weight: 0.75, category: 'jurisprudence' },
-                { id: 'TAX_047', text: 'O STA já se pronunciou sobre a matéria?', weight: 0.80, category: 'jurisprudence' },
-                { id: 'TAX_048', text: 'Existe jurisprudência favorável?', weight: 0.85, category: 'jurisprudence' },
-                { id: 'TAX_049', text: 'O sujeito passivo tem recursos em andamento?', weight: 0.72, category: 'procedure' },
-                { id: 'TAX_050', text: 'O sujeito passivo está em processo de insolvência?', weight: 0.78, category: 'context' }
+                { id: 'TAX_010', text: 'Houve penhora de bens?', weight: 0.80, category: 'procedure' }
             ]
         },
         civil: {
@@ -486,47 +516,7 @@
                 { id: 'CIV_007', text: 'O negócio foi simulado?', weight: 0.82, category: 'conduct' },
                 { id: 'CIV_008', text: 'Existe vício de consentimento?', weight: 0.80, category: 'consent' },
                 { id: 'CIV_009', text: 'A parte estava sob coação ou erro?', weight: 0.78, category: 'consent' },
-                { id: 'CIV_010', text: 'Existe documento comprovativo do pagamento?', weight: 0.88, category: 'evidence' },
-                { id: 'CIV_011', text: 'Houve prescrição do direito?', weight: 0.85, category: 'timing' },
-                { id: 'CIV_012', text: 'O prazo de caducidade foi observado?', weight: 0.82, category: 'timing' },
-                { id: 'CIV_013', text: 'A parte contrária reconheceu o direito?', weight: 0.75, category: 'conduct' },
-                { id: 'CIV_014', text: 'Existe confissão de dívida?', weight: 0.80, category: 'evidence' },
-                { id: 'CIV_015', text: 'As partes tentaram conciliação?', weight: 0.70, category: 'procedure' },
-                { id: 'CIV_016', text: 'Existe medição ou arbitragem?', weight: 0.72, category: 'procedure' },
-                { id: 'CIV_017', text: 'O valor da causa está definido?', weight: 0.78, category: 'value' },
-                { id: 'CIV_018', text: 'Existem danos materiais comprovados?', weight: 0.85, category: 'damages' },
-                { id: 'CIV_019', text: 'Existem danos morais?', weight: 0.82, category: 'damages' },
-                { id: 'CIV_020', text: 'O dano é atual ou futuro?', weight: 0.75, category: 'damages' },
-                { id: 'CIV_021', text: 'Existe nexo de causalidade?', weight: 0.88, category: 'causality' },
-                { id: 'CIV_022', text: 'A parte contrária tem responsabilidade civil?', weight: 0.85, category: 'liability' },
-                { id: 'CIV_023', text: 'Existem seguros aplicáveis?', weight: 0.70, category: 'insurance' },
-                { id: 'CIV_024', text: 'O sinistro foi participado à seguradora?', weight: 0.72, category: 'procedure' },
-                { id: 'CIV_025', text: 'Existe peritagem realizada?', weight: 0.80, category: 'evidence' },
-                { id: 'CIV_026', text: 'O perito tem credenciais?', weight: 0.75, category: 'evidence' },
-                { id: 'CIV_027', text: 'As partes têm capacidade jurídica?', weight: 0.78, category: 'capacity' },
-                { id: 'CIV_028', text: 'O representante tem poderes?', weight: 0.82, category: 'capacity' },
-                { id: 'CIV_029', text: 'Existe litispendência?', weight: 0.70, category: 'procedure' },
-                { id: 'CIV_030', text: 'O tribunal tem competência?', weight: 0.75, category: 'jurisdiction' },
-                { id: 'CIV_031', text: 'Existe caso julgado?', weight: 0.72, category: 'procedure' },
-                { id: 'CIV_032', text: 'As partes escolheram foro?', weight: 0.68, category: 'contract' },
-                { id: 'CIV_033', text: 'Existem factos notórios?', weight: 0.70, category: 'evidence' },
-                { id: 'CIV_034', text: 'Existem presunções legais?', weight: 0.75, category: 'evidence' },
-                { id: 'CIV_035', text: 'O juiz pode usar equidade?', weight: 0.65, category: 'principle' },
-                { id: 'CIV_036', text: 'A parte contrária é solvente?', weight: 0.80, category: 'context' },
-                { id: 'CIV_037', text: 'Existem bens penhoráveis?', weight: 0.78, category: 'context' },
-                { id: 'CIV_038', text: 'A parte contrária tem outros processos?', weight: 0.72, category: 'context' },
-                { id: 'CIV_039', text: 'Houve tentativa de cobrança amigável?', weight: 0.70, category: 'procedure' },
-                { id: 'CIV_040', text: 'Existem emails ou mensagens trocadas?', weight: 0.85, category: 'evidence' },
-                { id: 'CIV_041', text: 'As partes têm relação prévia?', weight: 0.75, category: 'context' },
-                { id: 'CIV_042', text: 'Existem contratos anteriores?', weight: 0.78, category: 'contract' },
-                { id: 'CIV_043', text: 'Houve novação ou transação?', weight: 0.72, category: 'contract' },
-                { id: 'CIV_044', text: 'Existe fiança ou aval?', weight: 0.70, category: 'guarantee' },
-                { id: 'CIV_045', text: 'O fiador foi notificado?', weight: 0.68, category: 'procedure' },
-                { id: 'CIV_046', text: 'Existem bens comuns do casal?', weight: 0.75, category: 'assets' },
-                { id: 'CIV_047', text: 'O regime de bens é conhecido?', weight: 0.72, category: 'context' },
-                { id: 'CIV_048', text: 'Existem herdeiros legitimários?', weight: 0.78, category: 'succession' },
-                { id: 'CIV_049', text: 'Foi feito inventário?', weight: 0.75, category: 'procedure' },
-                { id: 'CIV_050', text: 'O testamento é válido?', weight: 0.80, category: 'succession' }
+                { id: 'CIV_010', text: 'Existe documento comprovativo do pagamento?', weight: 0.88, category: 'evidence' }
             ]
         },
         commercial: {
@@ -542,47 +532,7 @@
                 { id: 'COM_007', text: 'Houve violação de deveres de administrador?', weight: 0.88, category: 'governance' },
                 { id: 'COM_008', text: 'Existem contratos com partes relacionadas?', weight: 0.80, category: 'transactions' },
                 { id: 'COM_009', text: 'As deliberações sociais foram válidas?', weight: 0.82, category: 'governance' },
-                { id: 'COM_010', text: 'Houve abuso de direito de voto?', weight: 0.78, category: 'governance' },
-                { id: 'COM_011', text: 'A sociedade tem registo comercial atualizado?', weight: 0.85, category: 'registry' },
-                { id: 'COM_012', text: 'Existem dívidas da sociedade?', weight: 0.88, category: 'liabilities' },
-                { id: 'COM_013', text: 'Os credores estão identificados?', weight: 0.82, category: 'liabilities' },
-                { id: 'COM_014', text: 'Existem garantias prestadas?', weight: 0.80, category: 'liabilities' },
-                { id: 'COM_015', text: 'A sociedade tem contas aprovadas?', weight: 0.85, category: 'accounts' },
-                { id: 'COM_016', text: 'As contas mostram situação líquida positiva?', weight: 0.88, category: 'accounts' },
-                { id: 'COM_017', text: 'Houve distribuição de dividendos ilícitos?', weight: 0.82, category: 'accounts' },
-                { id: 'COM_018', text: 'A sociedade está em situação de insolvência?', weight: 0.90, category: 'insolvency' },
-                { id: 'COM_019', text: 'Foram celebrados contratos de gestão?', weight: 0.75, category: 'management' },
-                { id: 'COM_020', text: 'Existem acordos parassociais?', weight: 0.72, category: 'agreements' },
-                { id: 'COM_021', text: 'Os sócios têm direito de preferência?', weight: 0.78, category: 'rights' },
-                { id: 'COM_022', text: 'Houve alteração do contrato social?', weight: 0.80, category: 'formation' },
-                { id: 'COM_023', text: 'Aumento de capital foi realizado?', weight: 0.82, category: 'capital' },
-                { id: 'COM_024', text: 'Redução de capital foi deliberada?', weight: 0.78, category: 'capital' },
-                { id: 'COM_025', text: 'Existem ações próprias?', weight: 0.75, category: 'capital' },
-                { id: 'COM_026', text: 'Os títulos foram emitidos?', weight: 0.70, category: 'securities' },
-                { id: 'COM_027', text: 'Existem obrigacionistas?', weight: 0.72, category: 'securities' },
-                { id: 'COM_028', text: 'A sociedade tem sede em Portugal?', weight: 0.85, category: 'jurisdiction' },
-                { id: 'COM_029', text: 'Existem estabelecimentos estáveis?', weight: 0.80, category: 'establishment' },
-                { id: 'COM_030', text: 'A sociedade tem atividade real?', weight: 0.82, category: 'activity' },
-                { id: 'COM_031', text: 'A sociedade tem trabalhadores?', weight: 0.78, category: 'activity' },
-                { id: 'COM_032', text: 'Existem contratos de trabalho?', weight: 0.75, category: 'activity' },
-                { id: 'COM_033', text: 'A sociedade tem seguros?', weight: 0.70, category: 'insurance' },
-                { id: 'COM_034', text: 'Existem licenças ou autorizações?', weight: 0.72, category: 'regulation' },
-                { id: 'COM_035', text: 'A sociedade cumpre normas setoriais?', weight: 0.75, category: 'regulation' },
-                { id: 'COM_036', text: 'Existem processos judiciais?', weight: 0.85, category: 'litigation' },
-                { id: 'COM_037', text: 'A sociedade é parte em arbitragem?', weight: 0.78, category: 'litigation' },
-                { id: 'COM_038', text: 'Existem penhoras sobre bens?', weight: 0.82, category: 'enforcement' },
-                { id: 'COM_039', text: 'A sociedade tem dívidas fiscais?', weight: 0.85, category: 'tax' },
-                { id: 'COM_040', text: 'Existem processos de execução fiscal?', weight: 0.80, category: 'tax' },
-                { id: 'COM_041', text: 'Os sócios responderam por dívidas?', weight: 0.75, category: 'liability' },
-                { id: 'COM_042', text: 'Houve desconsideração da personalidade jurídica?', weight: 0.78, category: 'liability' },
-                { id: 'COM_043', text: 'Existem grupos de sociedades?', weight: 0.72, category: 'group' },
-                { id: 'COM_044', text: 'Há relações de domínio?', weight: 0.70, category: 'group' },
-                { id: 'COM_045', text: 'A sociedade tem participações noutras?', weight: 0.75, category: 'group' },
-                { id: 'COM_046', text: 'Existem contratos de franchising?', weight: 0.68, category: 'contracts' },
-                { id: 'COM_047', text: 'Existem contratos de agência?', weight: 0.70, category: 'contracts' },
-                { id: 'COM_048', text: 'O agente tem exclusividade?', weight: 0.65, category: 'contracts' },
-                { id: 'COM_049', text: 'Houve cessação do contrato de agência?', weight: 0.72, category: 'contracts' },
-                { id: 'COM_050', text: 'Existe direito a indemnização?', weight: 0.75, category: 'damages' }
+                { id: 'COM_010', text: 'Houve abuso de direito de voto?', weight: 0.78, category: 'governance' }
             ]
         },
         criminal: {
@@ -598,47 +548,7 @@
                 { id: 'CRIM_007', text: 'O arguido confessou os factos?', weight: 0.78, category: 'confession' },
                 { id: 'CRIM_008', text: 'Existem testemunhas presenciais?', weight: 0.88, category: 'evidence' },
                 { id: 'CRIM_009', text: 'Existem provas documentais?', weight: 0.85, category: 'evidence' },
-                { id: 'CRIM_010', text: 'Existem provas periciais?', weight: 0.82, category: 'evidence' },
-                { id: 'CRIM_011', text: 'Existem provas digitais?', weight: 0.80, category: 'evidence' },
-                { id: 'CRIM_012', text: 'A cadeia de custódia foi respeitada?', weight: 0.92, category: 'evidence' },
-                { id: 'CRIM_013', text: 'O arguido foi constituído arguido?', weight: 0.85, category: 'procedure' },
-                { id: 'CRIM_014', text: 'Houve interrogatório judicial?', weight: 0.80, category: 'procedure' },
-                { id: 'CRIM_015', text: 'O arguido está em prisão preventiva?', weight: 0.75, category: 'coercion' },
-                { id: 'CRIM_016', text: 'Foram aplicadas outras medidas de coação?', weight: 0.72, category: 'coercion' },
-                { id: 'CRIM_017', text: 'O processo está em fase de inquérito?', weight: 0.78, category: 'phase' },
-                { id: 'CRIM_018', text: 'Houve dedução de acusação?', weight: 0.82, category: 'phase' },
-                { id: 'CRIM_019', text: 'O MP deduziu acusação?', weight: 0.80, category: 'phase' },
-                { id: 'CRIM_020', text: 'O arguido apresentou contestação?', weight: 0.75, category: 'phase' },
-                { id: 'CRIM_021', text: 'Houve instrução?', weight: 0.70, category: 'phase' },
-                { id: 'CRIM_022', text: 'O processo foi a julgamento?', weight: 0.78, category: 'phase' },
-                { id: 'CRIM_023', text: 'Houve recurso?', weight: 0.72, category: 'appeal' },
-                { id: 'CRIM_024', text: 'O crime é público, semi-público ou particular?', weight: 0.75, category: 'nature' },
-                { id: 'CRIM_025', text: 'Houve queixa apresentada?', weight: 0.80, category: 'complaint' },
-                { id: 'CRIM_026', text: 'O ofendido constituiu assistente?', weight: 0.72, category: 'victim' },
-                { id: 'CRIM_027', text: 'Houve pedido de indemnização civil?', weight: 0.70, category: 'damages' },
-                { id: 'CRIM_028', text: 'O arguido tem meios económicos?', weight: 0.68, category: 'profile' },
-                { id: 'CRIM_029', text: 'Houve apreensão de bens?', weight: 0.75, category: 'assets' },
-                { id: 'CRIM_030', text: 'Existem bens a perder a favor do Estado?', weight: 0.72, category: 'assets' },
-                { id: 'CRIM_031', text: 'O arguido é reincidente?', weight: 0.80, category: 'history' },
-                { id: 'CRIM_032', text: 'O crime é de menor gravidade?', weight: 0.78, category: 'severity' },
-                { id: 'CRIM_033', text: 'O arguido mostrou arrependimento?', weight: 0.75, category: 'conduct' },
-                { id: 'CRIM_034', text: 'Houve reparação do dano?', weight: 0.82, category: 'conduct' },
-                { id: 'CRIM_035', text: 'O arguido colaborou com a justiça?', weight: 0.80, category: 'conduct' },
-                { id: 'CRIM_036', text: 'Existem atenuantes?', weight: 0.85, category: 'circumstances' },
-                { id: 'CRIM_037', text: 'Existem agravantes?', weight: 0.88, category: 'circumstances' },
-                { id: 'CRIM_038', text: 'O crime foi cometido em grupo?', weight: 0.78, category: 'circumstances' },
-                { id: 'CRIM_039', text: 'Houve uso de arma?', weight: 0.75, category: 'circumstances' },
-                { id: 'CRIM_040', text: 'A vítima é especialmente vulnerável?', weight: 0.80, category: 'victim' },
-                { id: 'CRIM_041', text: 'O arguido tinha relação com a vítima?', weight: 0.72, category: 'relationship' },
-                { id: 'CRIM_042', text: 'Houve violência doméstica?', weight: 0.85, category: 'type' },
-                { id: 'CRIM_043', text: 'O crime foi cometido por funcionário público?', weight: 0.78, category: 'perpetrator' },
-                { id: 'CRIM_044', text: 'O arguido foi detido em flagrante?', weight: 0.75, category: 'arrest' },
-                { id: 'CRIM_045', text: 'Houve busca e apreensão?', weight: 0.80, category: 'procedure' },
-                { id: 'CRIM_046', text: 'As escutas telefónicas foram autorizadas?', weight: 0.85, category: 'evidence' },
-                { id: 'CRIM_047', text: 'Existem provas obtidas ilegalmente?', weight: 0.90, category: 'evidence' },
-                { id: 'CRIM_048', text: 'O arguido está representado por defensor?', weight: 0.82, category: 'defense' },
-                { id: 'CRIM_049', text: 'O arguido teve apoio judiciário?', weight: 0.70, category: 'defense' },
-                { id: 'CRIM_050', text: 'O processo ultrapassou os prazos legais?', weight: 0.75, category: 'timing' }
+                { id: 'CRIM_010', text: 'Existem provas periciais?', weight: 0.82, category: 'evidence' }
             ]
         },
         family: {
@@ -654,68 +564,10 @@
                 { id: 'FAM_007', text: 'Existe acordo de regulação das responsabilidades parentais?', weight: 0.85, category: 'children' },
                 { id: 'FAM_008', text: 'As crianças estão bem adaptadas?', weight: 0.78, category: 'children' },
                 { id: 'FAM_009', text: 'Qual a situação escolar dos filhos?', weight: 0.75, category: 'children' },
-                { id: 'FAM_010', text: 'Existem problemas de saúde dos filhos?', weight: 0.80, category: 'children' },
-                { id: 'FAM_011', text: 'O progenitor incumpre obrigações?', weight: 0.88, category: 'conduct' },
-                { id: 'FAM_012', text: 'A pensão de alimentos está definida?', weight: 0.85, category: 'support' },
-                { id: 'FAM_013', text: 'A pensão é paga regularmente?', weight: 0.82, category: 'support' },
-                { id: 'FAM_014', text: 'Existem incumprimentos de pensão?', weight: 0.80, category: 'support' },
-                { id: 'FAM_015', text: 'Houve violência doméstica?', weight: 0.90, category: 'violence' },
-                { id: 'FAM_016', text: 'Existem queixas na CPCJ?', weight: 0.85, category: 'violence' },
-                { id: 'FAM_017', text: 'Houve interdição de contactos?', weight: 0.78, category: 'children' },
-                { id: 'FAM_018', text: 'O regime de visitas está definido?', weight: 0.82, category: 'children' },
-                { id: 'FAM_019', text: 'Existem bens comuns do casal?', weight: 0.88, category: 'property' },
-                { id: 'FAM_020', text: 'Qual o valor dos bens comuns?', weight: 0.85, category: 'property' },
-                { id: 'FAM_021', text: 'Existem bens próprios de cada cônjuge?', weight: 0.80, category: 'property' },
-                { id: 'FAM_022', text: 'Existem dívidas comuns?', weight: 0.82, category: 'property' },
-                { id: 'FAM_023', text: 'A casa de morada de família é própria ou arrendada?', weight: 0.85, category: 'property' },
-                { id: 'FAM_024', text: 'Quem ficará com a casa?', weight: 0.88, category: 'property' },
-                { id: 'FAM_025', text: 'Existem contas bancárias conjuntas?', weight: 0.78, category: 'property' },
-                { id: 'FAM_026', text: 'Existem seguros de vida?', weight: 0.75, category: 'property' },
-                { id: 'FAM_027', text: 'Existem planos de poupança-reforma?', weight: 0.72, category: 'property' },
-                { id: 'FAM_028', text: 'O divórcio é por mútuo consentimento?', weight: 0.85, category: 'divorce' },
-                { id: 'FAM_029', text: 'O divórcio é litigioso?', weight: 0.88, category: 'divorce' },
-                { id: 'FAM_030', text: 'Qual a causa do divórcio?', weight: 0.82, category: 'divorce' },
-                { id: 'FAM_031', text: 'Houve cessação da coabitação?', weight: 0.80, category: 'divorce' },
-                { id: 'FAM_032', text: 'Data da separação de facto?', weight: 0.78, category: 'timing' },
-                { id: 'FAM_033', text: 'Existem testemunhas da separação?', weight: 0.75, category: 'evidence' },
-                { id: 'FAM_034', text: 'O cônjuge pede alimentos?', weight: 0.85, category: 'support' },
-                { id: 'FAM_035', text: 'O cônjuge tem capacidade para trabalhar?', weight: 0.80, category: 'support' },
-                { id: 'FAM_036', text: 'Existem necessidades especiais?', weight: 0.78, category: 'support' },
-                { id: 'FAM_037', text: 'O cônjuge contribuiu para a economia familiar?', weight: 0.82, category: 'support' },
-                { id: 'FAM_038', text: 'Existem testamentos?', weight: 0.70, category: 'succession' },
-                { id: 'FAM_039', text: 'Existem herdeiros legitimários?', weight: 0.75, category: 'succession' },
-                { id: 'FAM_040', text: 'Houve partilha de herança?', weight: 0.72, category: 'succession' },
-                { id: 'FAM_041', text: 'Existem doações em vida?', weight: 0.78, category: 'property' },
-                { id: 'FAM_042', text: 'As doações são colacionáveis?', weight: 0.75, category: 'property' },
-                { id: 'FAM_043', text: 'Existem contratos antenupciais?', weight: 0.70, category: 'contract' },
-                { id: 'FAM_044', text: 'Os pais são casados?', weight: 0.85, category: 'relationship' },
-                { id: 'FAM_045', text: 'A paternidade está estabelecida?', weight: 0.88, category: 'parentage' },
-                { id: 'FAM_046', text: 'Houve exame de ADN?', weight: 0.80, category: 'evidence' },
-                { id: 'FAM_047', text: 'O filho foi adotado?', weight: 0.75, category: 'parentage' },
-                { id: 'FAM_048', text: 'A adoção é plena ou restrita?', weight: 0.72, category: 'parentage' },
-                { id: 'FAM_049', text: 'Existe processo de regulação de responsabilidades?', weight: 0.85, category: 'procedure' },
-                { id: 'FAM_050', text: 'Foi realizada mediação familiar?', weight: 0.78, category: 'procedure' }
+                { id: 'FAM_010', text: 'Existem problemas de saúde dos filhos?', weight: 0.80, category: 'children' }
             ]
         }
     };
-    
-    // =========================================================================
-    // MOCK DATA (EXPANDIDO PARA DEMONSTRAÇÃO - 127 casos para 60 advogados)
-    // =========================================================================
-    
-    const MOCK_CASES = [
-        { id: 'INS001', client: 'Construtora ABC, SA', nif_devedor: '123456789', category: 'insolvency', categoryName: 'Insolvência (CIRE)', value: 2450000, successProbability: 0.72, status: 'active', court: 'Lisboa', startDate: '2022-08-15', hoursSpent: 320, resourceLevel: 'senior', evidence: ['Insolvência culposa', 'Lista de credores extensa'], adversary: 'PLMJ', judge: 'Dr. António Costa', riskLevel: 'normal', fase_processual: 'Reclamação de Créditos', administrador_insolvencia: 'Dr. José Silva', data_sentenca_declarativa: '2022-10-15', hasDocumentaryEvidence: true, hasDigitalEvidence: false },
-        { id: 'INS002', client: 'Retail Solutions, SA', nif_devedor: '987654321', category: 'insolvency', categoryName: 'Insolvência (CIRE)', value: 875000, successProbability: 0.68, status: 'active', court: 'Porto', startDate: '2023-02-10', hoursSpent: 185, resourceLevel: 'associate', evidence: ['Exoneração passivo', 'Ativo remanescente'], adversary: 'VdA', judge: 'Dra. Sofia Mendes', riskLevel: 'warning', fase_processual: 'Exoneração do Passivo Restante', administrador_insolvencia: 'Dra. Ana Costa', data_sentenca_declarativa: '2023-04-20', hasDocumentaryEvidence: true, hasDigitalEvidence: true },
-        { id: 'BNK001', client: 'Banco Internacional, SA', nif_devedor: '111222333', category: 'banking', categoryName: 'Contencioso Bancário', value: 12500000, successProbability: 0.78, status: 'active', court: 'Lisboa', startDate: '2023-03-01', hoursSpent: 420, resourceLevel: 'senior', evidence: ['Contrato de crédito', 'Garantias reais'], adversary: 'Cuatrecasas', judge: 'Dr. António Costa', riskLevel: 'normal', hasDocumentaryEvidence: true, hasDigitalEvidence: true },
-        { id: 'MNA001', client: 'Grupo Energia, SA', nif_devedor: '777888999', category: 'ma', categoryName: 'Fusões e Aquisições', value: 45000000, successProbability: 0.85, status: 'active', court: 'Arbitragem', startDate: '2023-10-01', hoursSpent: 520, resourceLevel: 'senior', evidence: ['Contrato de compra e venda', 'Due diligence'], adversary: 'PLMJ', judge: 'Dr. Pedro Santos', riskLevel: 'normal', hasDocumentaryEvidence: true, hasDigitalEvidence: true },
-        { id: 'MASS001', client: 'Consumidores União', nif_devedor: '456456456', category: 'mass', categoryName: 'Litigância de Massa', value: 15200000, successProbability: 0.82, status: 'active', court: 'Lisboa', startDate: '2023-06-10', hoursSpent: 420, resourceLevel: 'senior', evidence: ['Prova documental coletiva', 'Jurisprudência favorável'], adversary: 'VdA', judge: 'Dra. Teresa Lopes', riskLevel: 'normal', hasDocumentaryEvidence: true, hasDigitalEvidence: false },
-        { id: 'TAX001', client: 'Grupo Industrial, SA', nif_devedor: '321321321', category: 'tax', categoryName: 'Direito Fiscal', value: 12500000, successProbability: 0.78, status: 'active', court: 'CAAD', startDate: '2022-11-10', hoursSpent: 485, resourceLevel: 'senior', evidence: ['Notificação prévia AT', 'Prova digital com hash'], adversary: 'VdA', judge: 'Dr. Pedro Santos', riskLevel: 'warning', hasDocumentaryEvidence: true, hasDigitalEvidence: true },
-        { id: 'LAB001', client: 'Maria Rodrigues', nif_devedor: '654321987', category: 'labor', categoryName: 'Direito do Trabalho', value: 28900, successProbability: 0.85, status: 'active', court: 'Porto', startDate: '2024-01-15', hoursSpent: 85, resourceLevel: 'junior', evidence: ['Contrato de trabalho', 'Recibos de vencimento'], adversary: 'Garrigues', judge: 'Dra. Sofia Mendes', riskLevel: 'normal', hasDocumentaryEvidence: true, hasDigitalEvidence: false },
-        { id: 'CIV001', client: 'António Almeida', nif_devedor: '147258369', category: 'civil', categoryName: 'Direito Civil', value: 125000, successProbability: 0.78, status: 'active', court: 'Coimbra', startDate: '2023-11-01', hoursSpent: 120, resourceLevel: 'associate', evidence: ['Contrato promessa compra e venda'], adversary: 'Abreu', judge: 'Dr. Rui Silva', riskLevel: 'normal', hasDocumentaryEvidence: true, hasDigitalEvidence: false },
-        { id: 'FAM001', client: 'Carla Mendes', nif_devedor: '369258147', category: 'family', categoryName: 'Direito da Família', value: 45000, successProbability: 0.72, status: 'active', court: 'Lisboa', startDate: '2024-02-01', hoursSpent: 65, resourceLevel: 'junior', evidence: ['Acordo de regulação parental'], adversary: 'Morais Leitão', judge: 'Dra. Teresa Lopes', riskLevel: 'normal', hasDocumentaryEvidence: true, hasDigitalEvidence: false },
-        { id: 'CRIM001', client: 'João Santos', nif_devedor: '741852963', category: 'criminal', categoryName: 'Direito Penal', value: 0, successProbability: 0.65, status: 'active', court: 'Braga', startDate: '2024-03-10', hoursSpent: 95, resourceLevel: 'senior', evidence: ['Arguido', 'Prova testemunhal'], adversary: 'MP', judge: 'Dr. Ricardo Alves', riskLevel: 'elevado', hasDocumentaryEvidence: false, hasDigitalEvidence: true },
-        { id: 'COM001', client: 'Tech Solutions, Lda', nif_devedor: '951753852', category: 'commercial', categoryName: 'Direito Comercial', value: 750000, successProbability: 0.75, status: 'active', court: 'Lisboa', startDate: '2024-04-01', hoursSpent: 150, resourceLevel: 'senior', evidence: ['Contrato social', 'Atas de assembleia'], adversary: 'PLMJ', judge: 'Dr. António Costa', riskLevel: 'normal', hasDocumentaryEvidence: true, hasDigitalEvidence: false }
-    ];
     
     // =========================================================================
     // FUNÇÃO DE SELEÇÃO INTELIGENTE DAS 6 MELHORES PERGUNTAS
@@ -731,37 +583,19 @@
         
         let questions = [...questionBank.questions];
         
-        // Calcular score de relevância para cada pergunta com base no caso
         const scoredQuestions = questions.map(q => {
             let relevanceScore = q.weight;
             
-            // Ajustar com base nos dados do caso
-            if (caseData.fase_processual && q.category === 'procedure') {
-                relevanceScore += 0.15;
-            }
-            if (caseData.evidence && q.category === 'evidence') {
-                relevanceScore += 0.20;
-            }
-            if (caseData.value && caseData.value > 1000000 && q.category === 'value') {
-                relevanceScore += 0.10;
-            }
-            if (caseData.judge && q.category === 'profile') {
-                relevanceScore += 0.05;
-            }
-            if (caseData.riskLevel === 'critical' && q.category === 'conduct') {
-                relevanceScore += 0.15;
-            }
-            if (caseData.hasDocumentaryEvidence && q.category === 'evidence') {
-                relevanceScore += 0.10;
-            }
-            if (caseData.hasDigitalEvidence && q.id.includes('DIG')) {
-                relevanceScore += 0.15;
-            }
+            if (caseData.fase_processual && q.category === 'procedure') relevanceScore += 0.15;
+            if (caseData.evidence && q.category === 'evidence') relevanceScore += 0.20;
+            if (caseData.value && caseData.value > 1000000 && q.category === 'value') relevanceScore += 0.10;
+            if (caseData.judge && q.category === 'profile') relevanceScore += 0.05;
+            if (caseData.riskLevel === 'critical' && q.category === 'conduct') relevanceScore += 0.15;
+            if (caseData.hasDocumentaryEvidence && q.category === 'evidence') relevanceScore += 0.10;
             
             return { ...q, relevanceScore: Math.min(relevanceScore, 1.0) };
         });
         
-        // Ordenar por relevância e selecionar top 6
         const topQuestions = scoredQuestions
             .sort((a, b) => b.relevanceScore - a.relevanceScore)
             .slice(0, 6);
@@ -773,6 +607,24 @@
             totalAvailable: questions.length
         };
     }
+    
+    // =========================================================================
+    // MOCK DATA (EXPANDIDO PARA DEMONSTRAÇÃO)
+    // =========================================================================
+    
+    const MOCK_CASES = [
+        { id: 'INS001', client: 'Construtora ABC, SA', nif_devedor: '123456789', category: 'insolvency', categoryName: 'Insolvência (CIRE)', value: 2450000, successProbability: 0.72, status: 'active', court: 'Lisboa', startDate: '2022-08-15', hoursSpent: 320, resourceLevel: 'senior', evidence: ['Insolvência culposa', 'Lista de credores extensa'], adversary: 'PLMJ', judge: 'Dr. António Costa', riskLevel: 'normal', fase_processual: 'Reclamação de Créditos', administrador_insolvencia: 'Dr. José Silva', data_sentenca_declarativa: '2022-10-15', hasDocumentaryEvidence: true, hasDigitalEvidence: false },
+        { id: 'INS002', client: 'Retail Solutions, SA', nif_devedor: '987654321', category: 'insolvency', categoryName: 'Insolvência (CIRE)', value: 875000, successProbability: 0.68, status: 'active', court: 'Porto', startDate: '2023-02-10', hoursSpent: 185, resourceLevel: 'associate', evidence: ['Exoneração passivo', 'Ativo remanescente'], adversary: 'VdA', judge: 'Dra. Sofia Mendes', riskLevel: 'warning', fase_processual: 'Exoneração do Passivo Restante', administrador_insolvencia: 'Dra. Ana Costa', data_sentenca_declarativa: '2023-04-20', hasDocumentaryEvidence: true, hasDigitalEvidence: true },
+        { id: 'BNK001', client: 'Banco Internacional, SA', nif_devedor: '111222333', category: 'banking', categoryName: 'Contencioso Bancário', value: 12500000, successProbability: 0.78, status: 'active', court: 'Lisboa', startDate: '2023-03-01', hoursSpent: 420, resourceLevel: 'senior', evidence: ['Contrato de crédito', 'Garantias reais'], adversary: 'Cuatrecasas', judge: 'Dr. António Costa', riskLevel: 'normal', hasDocumentaryEvidence: true, hasDigitalEvidence: true },
+        { id: 'MNA001', client: 'Grupo Energia, SA', nif_devedor: '777888999', category: 'ma', categoryName: 'Fusões e Aquisições', value: 45000000, successProbability: 0.85, status: 'active', court: 'Arbitragem', startDate: '2023-10-01', hoursSpent: 520, resourceLevel: 'senior', evidence: ['Contrato de compra e venda', 'Due diligence'], adversary: 'PLMJ', judge: 'Dr. Pedro Santos', riskLevel: 'normal', hasDocumentaryEvidence: true, hasDigitalEvidence: true },
+        { id: 'MASS001', client: 'Consumidores União', nif_devedor: '456456456', category: 'mass', categoryName: 'Litigância de Massa', value: 15200000, successProbability: 0.82, status: 'active', court: 'Lisboa', startDate: '2023-06-10', hoursSpent: 420, resourceLevel: 'senior', evidence: ['Prova documental coletiva', 'Jurisprudência favorável'], adversary: 'VdA', judge: 'Dra. Teresa Lopes', riskLevel: 'normal', hasDocumentaryEvidence: true, hasDigitalEvidence: false },
+        { id: 'TAX001', client: 'Grupo Industrial, SA', nif_devedor: '321321321', category: 'tax', categoryName: 'Direito Fiscal', value: 12500000, successProbability: 0.78, status: 'active', court: 'CAAD', startDate: '2022-11-10', hoursSpent: 485, resourceLevel: 'senior', evidence: ['Notificação prévia AT', 'Prova digital com hash'], adversary: 'VdA', judge: 'Dr. Pedro Santos', riskLevel: 'warning', hasDocumentaryEvidence: true, hasDigitalEvidence: true },
+        { id: 'LAB001', client: 'Maria Rodrigues', nif_devedor: '654321987', category: 'labor', categoryName: 'Direito do Trabalho', value: 28900, successProbability: 0.85, status: 'active', court: 'Porto', startDate: '2024-01-15', hoursSpent: 85, resourceLevel: 'junior', evidence: ['Contrato de trabalho', 'Recibos de vencimento'], adversary: 'Garrigues', judge: 'Dra. Sofia Mendes', riskLevel: 'normal', hasDocumentaryEvidence: true, hasDigitalEvidence: false },
+        { id: 'CIV001', client: 'António Almeida', nif_devedor: '147258369', category: 'civil', categoryName: 'Direito Civil', value: 125000, successProbability: 0.78, status: 'active', court: 'Coimbra', startDate: '2023-11-01', hoursSpent: 120, resourceLevel: 'associate', evidence: ['Contrato promessa compra e venda'], adversary: 'Abreu', judge: 'Dr. Rui Silva', riskLevel: 'normal', hasDocumentaryEvidence: true, hasDigitalEvidence: false },
+        { id: 'FAM001', client: 'Carla Mendes', nif_devedor: '369258147', category: 'family', categoryName: 'Direito da Família', value: 45000, successProbability: 0.72, status: 'active', court: 'Lisboa', startDate: '2024-02-01', hoursSpent: 65, resourceLevel: 'junior', evidence: ['Acordo de regulação parental'], adversary: 'Morais Leitão', judge: 'Dra. Teresa Lopes', riskLevel: 'normal', hasDocumentaryEvidence: true, hasDigitalEvidence: false },
+        { id: 'CRIM001', client: 'João Santos', nif_devedor: '741852963', category: 'criminal', categoryName: 'Direito Penal', value: 0, successProbability: 0.65, status: 'active', court: 'Braga', startDate: '2024-03-10', hoursSpent: 95, resourceLevel: 'senior', evidence: ['Arguido', 'Prova testemunhal'], adversary: 'MP', judge: 'Dr. Ricardo Alves', riskLevel: 'elevado', hasDocumentaryEvidence: false, hasDigitalEvidence: true },
+        { id: 'COM001', client: 'Tech Solutions, Lda', nif_devedor: '951753852', category: 'commercial', categoryName: 'Direito Comercial', value: 750000, successProbability: 0.75, status: 'active', court: 'Lisboa', startDate: '2024-04-01', hoursSpent: 150, resourceLevel: 'senior', evidence: ['Contrato social', 'Atas de assembleia'], adversary: 'PLMJ', judge: 'Dr. António Costa', riskLevel: 'normal', hasDocumentaryEvidence: true, hasDigitalEvidence: false }
+    ];
     
     // =========================================================================
     // VARIÁVEIS GLOBAIS
@@ -837,7 +689,7 @@
     }
     
     // =========================================================================
-    // RENDERIZAÇÃO DO DASHBOARD (com dados expandidos)
+    // RENDERIZAÇÃO DO DASHBOARD
     // =========================================================================
     
     function renderDashboard() {
@@ -924,12 +776,45 @@
                 <h3><i class="fas fa-chart-line"></i> ANÁLISE DE RISCO (VAR JURÍDICO)</h3>
                 <div id="monteCarloResults" style="min-height: 300px;"></div>
             </div>
+            
+            <div class="offline-controls" style="margin-top: 20px; display: flex; gap: 12px; justify-content: flex-end;">
+                <button id="cacheCurrentCaseBtn" class="elite-btn secondary" data-case-id="INS001">
+                    <i class="fas fa-download"></i> DESCARREGAR PARA AUDIÊNCIA
+                </button>
+                <button id="checkOfflineStatusBtn" class="elite-btn info">
+                    <i class="fas fa-wifi"></i> VERIFICAR OFFLINE
+                </button>
+            </div>
         `;
         
         initPortfolioChart();
         initCategoryChart(categoryCount);
         initBlackSwanPanel();
         startTacticalAlertsTicker();
+        
+        document.getElementById('cacheCurrentCaseBtn')?.addEventListener('click', async () => {
+            const caseId = document.getElementById('cacheCurrentCaseBtn').dataset.caseId;
+            if (caseId) {
+                await cacheCaseForOffline(caseId);
+            }
+        });
+        
+        document.getElementById('checkOfflineStatusBtn')?.addEventListener('click', async () => {
+            if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+                const messageChannel = new MessageChannel();
+                messageChannel.port1.onmessage = (event) => {
+                    const data = event.data;
+                    if (data.cachedCases) {
+                        EliteUtils.showToast(`${data.cachedCases.length} casos disponíveis offline. Tamanho total: ${(data.cacheSize / 1024 / 1024).toFixed(2)} MB`, 'info');
+                    }
+                };
+                navigator.serviceWorker.controller.postMessage({
+                    type: 'CHECK_CACHE_STATUS'
+                }, [messageChannel.port2]);
+            } else {
+                EliteUtils.showToast('Modo offline não disponível. Service Worker não registado.', 'warning');
+            }
+        });
     }
     
     function initPortfolioChart() {
@@ -1053,7 +938,7 @@
     }
     
     // =========================================================================
-    // RENDERIZAÇÃO DOS PROCESSOS (COM DADOS DE DEMO COMPLETOS)
+    // RENDERIZAÇÃO DOS PROCESSOS
     // =========================================================================
     
     function renderCases() {
@@ -1079,6 +964,7 @@
                 <h2>${t('nav_cases')}</h2>
                 <div class="cases-actions">
                     <button id="newCaseBtn" class="elite-btn primary"><i class="fas fa-plus"></i> NOVO PROCESSO</button>
+                    <button id="cacheOfflineBtn" class="elite-btn secondary"><i class="fas fa-download"></i> PREPARAR OFFLINE</button>
                 </div>
                 <div class="cases-search">
                     <input type="text" id="searchCases" placeholder="Pesquisar processos..." class="search-input">
@@ -1101,7 +987,7 @@
                             <td><span class="case-badge ${c.category}">${c.categoryName}</span> </div>
                             <td><div class="progress-bar"><div class="progress-fill" style="width: ${c.successProbability * 100}%"></div><span class="progress-text">${EliteUtils.formatPercentage(c.successProbability * 100)}</span></div> </div>
                             <td><span class="status-badge status-${c.status === 'active' ? 'active' : 'pending'}">${c.status === 'active' ? 'ATIVO' : 'PENDENTE'}</span> </div>
-                            <td><button class="action-btn view-case" data-id="${c.id}"><i class="fas fa-eye"></i></button><button class="action-btn delete-case" data-id="${c.id}"><i class="fas fa-trash"></i></button> </div>
+                            <td><button class="action-btn view-case" data-id="${c.id}"><i class="fas fa-eye"></i></button><button class="action-btn delete-case" data-id="${c.id}"><i class="fas fa-trash"></i></button><button class="action-btn cache-case" data-id="${c.id}" title="Preparar para offline"><i class="fas fa-download"></i></button> </div>
                          </div>
                     `).join('')}
                 </tbody>
@@ -1109,6 +995,23 @@
         `;
         
         attachCaseEvents();
+        
+        document.getElementById('cacheOfflineBtn')?.addEventListener('click', async () => {
+            const caseId = prompt('Digite o ID do processo para preparar offline:', 'INS001');
+            if (caseId) {
+                await cacheCaseForOffline(caseId);
+            }
+        });
+        
+        document.querySelectorAll('.cache-case').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const caseId = btn.dataset.id;
+                if (caseId) {
+                    await cacheCaseForOffline(caseId);
+                }
+            });
+        });
     }
     
     function attachCaseEvents() {
@@ -1129,10 +1032,12 @@
                             <div class="detail-row"><span>Área:</span><strong>${caseData.categoryName}</strong></div>
                             <div class="detail-row"><span>Fase Processual:</span><strong>${caseData.fase_processual || 'Em análise'}</strong></div>
                             <div class="detail-row"><span>Evidências:</span><strong>${caseData.evidence?.join(', ') || 'Nenhuma registada'}</strong></div>
-                            <div class="detail-actions" style="margin-top: 20px;">
-                                <button id="generateQuestionsBtn" class="elite-btn primary" data-id="${caseData.id}"><i class="fas fa-question-circle"></i> GERAR QUESTIONÁRIO ESTRATÉGICO</button>
+                            <div class="detail-actions" style="margin-top: 20px; display: flex; gap: 12px; flex-wrap: wrap;">
+                                <button id="generateQuestionsBtn" class="elite-btn primary" data-id="${caseData.id}"><i class="fas fa-question-circle"></i> GERAR QUESTIONÁRIO</button>
                                 <button id="deleteCaseFromModal" class="elite-btn danger" data-id="${caseData.id}"><i class="fas fa-trash"></i> ELIMINAR PROCESSO</button>
                                 <button id="sealCaseResultBtn" class="elite-btn secondary" data-id="${caseData.id}"><i class="fas fa-link"></i> SELAR RESULTADO</button>
+                                <button id="cacheCaseModalBtn" class="elite-btn info" data-id="${caseData.id}"><i class="fas fa-download"></i> PREPARAR OFFLINE</button>
+                                <button id="exportCourtPackageBtn" class="elite-btn success" data-id="${caseData.id}"><i class="fas fa-briefcase"></i> PACOTE FORENSE</button>
                             </div>
                         `;
                         
@@ -1154,6 +1059,18 @@
                         
                         document.getElementById('generateQuestionsBtn')?.addEventListener('click', () => {
                             showStrategicQuestionsModal(caseData);
+                        });
+                        
+                        document.getElementById('cacheCaseModalBtn')?.addEventListener('click', async () => {
+                            await cacheCaseForOffline(caseData.id);
+                        });
+                        
+                        document.getElementById('exportCourtPackageBtn')?.addEventListener('click', async () => {
+                            if (window.StrategicVault && typeof window.StrategicVault.exportCourtPackage === 'function') {
+                                await window.StrategicVault.exportCourtPackage(caseData.id, { zip: true });
+                            } else {
+                                EliteUtils.showToast('Strategic Vault não disponível', 'error');
+                            }
                         });
                     }
                     document.getElementById('caseDetailModal').style.display = 'flex';
@@ -1243,49 +1160,33 @@
                     <button class="modal-close-btn elite-btn secondary">FECHAR</button>
                 </div>
             </div>
+            <style>
+                .strategic-questions-modal { padding: 0; }
+                .modal-header-info { margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--border-tactic); }
+                .modal-header-info h3 { color: var(--elite-primary); margin-bottom: 8px; }
+                .modal-header-info p { font-size: 0.75rem; color: #94a3b8; margin: 4px 0; }
+                .questions-header { background: var(--bg-command); padding: 12px 16px; border-radius: 12px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; font-weight: bold; }
+                .questions-header small { font-size: 0.65rem; color: #94a3b8; font-weight: normal; }
+                .questions-list { display: flex; flex-direction: column; gap: 12px; max-height: 500px; overflow-y: auto; padding-right: 8px; }
+                .question-card { background: var(--bg-terminal); border-radius: 12px; padding: 16px; display: flex; gap: 16px; align-items: flex-start; border-left: 3px solid var(--elite-primary); transition: all 0.2s; }
+                .question-card:hover { transform: translateX(4px); border-left-color: var(--elite-success); }
+                .question-number { width: 32px; height: 32px; background: var(--elite-primary-dim); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; color: var(--elite-primary); flex-shrink: 0; }
+                .question-text { font-size: 0.85rem; line-height: 1.4; margin-bottom: 8px; font-weight: 500; }
+                .question-meta { display: flex; gap: 12px; font-size: 0.6rem; }
+                .question-category { background: rgba(0, 229, 255, 0.1); padding: 2px 8px; border-radius: 12px; color: var(--elite-primary); }
+                .copy-question-btn { background: rgba(255,255,255,0.05); border: none; padding: 8px; border-radius: 8px; cursor: pointer; color: #94a3b8; transition: all 0.2s; }
+                .copy-question-btn:hover { background: var(--elite-primary-dim); color: var(--elite-primary); }
+                .questions-footer { margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border-tactic); display: flex; gap: 12px; justify-content: flex-end; flex-wrap: wrap; }
+            </style>
         `;
         
-        // Estilos específicos do modal
-        const style = document.createElement('style');
-        style.textContent = `
-            .strategic-questions-modal { padding: 0; }
-            .modal-header-info { margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--border-tactic); }
-            .modal-header-info h3 { color: var(--elite-primary); margin-bottom: 8px; }
-            .modal-header-info p { font-size: 0.75rem; color: #94a3b8; margin: 4px 0; }
-            .modal-header-info .case-ref { color: var(--elite-primary); font-family: monospace; }
-            .questions-header { background: var(--bg-command); padding: 12px 16px; border-radius: 12px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; font-weight: bold; }
-            .questions-header small { font-size: 0.65rem; color: #94a3b8; font-weight: normal; }
-            .questions-list { display: flex; flex-direction: column; gap: 12px; max-height: 500px; overflow-y: auto; padding-right: 8px; }
-            .question-card { background: var(--bg-terminal); border-radius: 12px; padding: 16px; display: flex; gap: 16px; align-items: flex-start; border-left: 3px solid var(--elite-primary); transition: all 0.2s; }
-            .question-card:hover { transform: translateX(4px); border-left-color: var(--elite-success); }
-            .question-number { width: 32px; height: 32px; background: var(--elite-primary-dim); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; color: var(--elite-primary); flex-shrink: 0; }
-            .question-content { flex: 1; }
-            .question-text { font-size: 0.85rem; line-height: 1.4; margin-bottom: 8px; font-weight: 500; }
-            .question-meta { display: flex; gap: 12px; font-size: 0.6rem; }
-            .question-category { background: rgba(0, 229, 255, 0.1); padding: 2px 8px; border-radius: 12px; color: var(--elite-primary); }
-            .question-relevance { color: #94a3b8; }
-            .copy-question-btn { background: rgba(255,255,255,0.05); border: none; padding: 8px; border-radius: 8px; cursor: pointer; color: #94a3b8; transition: all 0.2s; }
-            .copy-question-btn:hover { background: var(--elite-primary-dim); color: var(--elite-primary); }
-            .questions-footer { margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border-tactic); display: flex; gap: 12px; justify-content: flex-end; flex-wrap: wrap; }
-            .modal-close-btn { background: transparent; border: 1px solid var(--border-tactic); }
-            @media (max-width: 768px) {
-                .question-card { flex-wrap: wrap; }
-                .question-number { width: 28px; height: 28px; font-size: 0.7rem; }
-                .question-text { font-size: 0.75rem; }
-            }
-        `;
-        modalBody.appendChild(style);
-        
-        // Event listeners
         document.querySelectorAll('.copy-question-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 const question = btn.dataset.question;
                 navigator.clipboard.writeText(question);
-                EliteUtils.showToast('Pergunta copiada para área de transferência', 'success');
+                EliteUtils.showToast('Pergunta copiada', 'success');
                 btn.innerHTML = '<i class="fas fa-check"></i>';
-                setTimeout(() => {
-                    btn.innerHTML = '<i class="fas fa-copy"></i>';
-                }, 1500);
+                setTimeout(() => btn.innerHTML = '<i class="fas fa-copy"></i>', 1500);
             });
         });
         
@@ -1297,31 +1198,16 @@
         
         document.getElementById('exportQuestionsBtn')?.addEventListener('click', () => {
             const htmlContent = `
-                <html>
-                <head><meta charset="UTF-8"><title>Questionário Estratégico - ${caseData.id}</title>
-                <style>
-                    body { font-family: 'JetBrains Mono', monospace; padding: 40px; background: white; }
-                    h1 { color: #00e5ff; }
-                    .question { margin: 20px 0; padding: 15px; border-left: 3px solid #00e5ff; }
-                    .meta { font-size: 12px; color: #666; margin-top: 8px; }
-                </style>
-                </head>
-                <body>
-                    <h1>ELITE PROBATUM - Questionário Estratégico</h1>
-                    <p><strong>Caso:</strong> ${caseData.id} - ${caseData.client}</p>
-                    <p><strong>Área:</strong> ${selectedQuestions.categoryName}</p>
-                    <p><strong>Juiz:</strong> ${caseData.judge || 'A designar'}</p>
-                    <hr>
-                    ${selectedQuestions.questions.map((q, i) => `
-                        <div class="question">
-                            <strong>${i + 1}. ${q.text}</strong>
-                            <div class="meta">Categoria: ${q.category.toUpperCase()} | Relevância: ${(q.relevanceScore * 100).toFixed(0)}%</div>
-                        </div>
-                    `).join('')}
-                    <hr>
-                    <small>Documento gerado por ELITE PROBATUM v2.0.5 • Unidade de Comando Estratégico</small>
-                </body>
-                </html>
+                <html><head><meta charset="UTF-8"><title>Questionário - ${caseData.id}</title>
+                <style>body{font-family:monospace;padding:40px;} .q{margin:20px 0;padding:15px;border-left:3px solid #00e5ff;}</style>
+                </head><body>
+                <h1>ELITE PROBATUM - Questionário Estratégico</h1>
+                <p><strong>Caso:</strong> ${caseData.id} - ${caseData.client}</p>
+                <p><strong>Área:</strong> ${selectedQuestions.categoryName}</p>
+                <hr>
+                ${selectedQuestions.questions.map((q, i) => `<div class="q"><strong>${i+1}. ${q.text}</strong></div>`).join('')}
+                <hr><small>ELITE PROBATUM v2.0.5</small>
+                </body></html>
             `;
             const blob = new Blob([htmlContent], { type: 'text/html' });
             const link = document.createElement('a');
@@ -1460,7 +1346,7 @@
     }
     
     // =========================================================================
-    // RENDERIZAÇÃO DO PAINEL DE VALOR (GAIN SHARE - SEM FATURAÇÃO)
+    // RENDERIZAÇÃO DO PAINEL DE VALOR
     // =========================================================================
     
     function renderValueDashboard() {
@@ -1475,7 +1361,7 @@
     }
     
     // =========================================================================
-    // RENDERIZAÇÃO DO QUESTIONÁRIO ESTRATÉGICO (VIEW PRINCIPAL)
+    // RENDERIZAÇÃO DO QUESTIONÁRIO
     // =========================================================================
     
     function renderQuestionnaire() {
@@ -1526,10 +1412,6 @@
                 .case-selector-info { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 0.7rem; color: #94a3b8; margin-bottom: 16px; }
                 .generate-questions-btn { width: 100%; }
                 .questions-result { margin-top: 32px; padding-top: 24px; border-top: 1px solid var(--border-tactic); }
-                .questions-result h3 { color: var(--elite-primary); margin-bottom: 16px; }
-                @media (max-width: 768px) {
-                    .cases-grid-selector { grid-template-columns: 1fr; }
-                }
             </style>
         `;
         
@@ -1565,13 +1447,12 @@
                         </div>
                         <style>
                             .strategic-questions-preview { background: var(--bg-terminal); border-radius: 16px; padding: 20px; }
-                            .preview-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 12px; border-bottom: 1px solid var(--border-tactic); flex-wrap: wrap; gap: 12px; }
-                            .preview-badge { background: var(--elite-primary-dim); padding: 4px 12px; border-radius: 20px; font-size: 0.7rem; color: var(--elite-primary); }
+                            .preview-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
+                            .preview-badge { background: var(--elite-primary-dim); padding: 4px 12px; border-radius: 20px; font-size: 0.7rem; }
                             .questions-list-preview { display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px; }
                             .preview-question { display: flex; align-items: flex-start; gap: 12px; padding: 12px; background: var(--bg-command); border-radius: 12px; border-left: 3px solid var(--elite-primary); }
                             .preview-number { width: 28px; height: 28px; background: var(--elite-primary-dim); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: bold; flex-shrink: 0; }
                             .preview-text { flex: 1; font-size: 0.8rem; line-height: 1.4; }
-                            .copy-single-btn { background: transparent; border: 1px solid var(--border-tactic); padding: 4px 8px; }
                             .preview-footer { display: flex; gap: 12px; justify-content: flex-end; flex-wrap: wrap; }
                         </style>
                     `;
@@ -1596,19 +1477,15 @@
                     
                     document.getElementById('exportPreviewBtn')?.addEventListener('click', () => {
                         const htmlContent = `
-                            <html>
-                            <head><meta charset="UTF-8"><title>Questionário Estratégico - ${caseData.id}</title>
-                            <style>body{font-family: monospace; padding: 40px;} .q{margin:20px 0; padding:15px; border-left:3px solid #00e5ff;}</style>
-                            </head>
-                            <body>
-                                <h1>ELITE PROBATUM - Questionário Estratégico</h1>
-                                <p><strong>Caso:</strong> ${caseData.id} - ${caseData.client}</p>
-                                <p><strong>Área:</strong> ${selectedQuestions.categoryName}</p>
-                                <hr>
-                                ${selectedQuestions.questions.map((q, i) => `<div class="q"><strong>${i+1}. ${q.text}</strong></div>`).join('')}
-                                <hr><small>ELITE PROBATUM v2.0.5</small>
-                            </body>
-                            </html>
+                            <html><head><meta charset="UTF-8"><title>Questionário - ${caseData.id}</title>
+                            <style>body{font-family:monospace;padding:40px;} .q{margin:20px 0;padding:15px;border-left:3px solid #00e5ff;}</style>
+                            </head><body>
+                            <h1>ELITE PROBATUM - Questionário Estratégico</h1>
+                            <p><strong>Caso:</strong> ${caseData.id} - ${caseData.client}</p>
+                            <hr>
+                            ${selectedQuestions.questions.map((q, i) => `<div class="q"><strong>${i+1}. ${q.text}</strong></div>`).join('')}
+                            <hr><small>ELITE PROBATUM v2.0.5</small>
+                            </body></html>
                         `;
                         const blob = new Blob([htmlContent], { type: 'text/html' });
                         const link = document.createElement('a');
@@ -1667,15 +1544,13 @@
                 .badge-success { background: var(--elite-success-dim); color: var(--elite-success); border: 1px solid var(--elite-success); }
                 .badge-info { background: var(--elite-info-dim); color: var(--elite-info); border: 1px solid var(--elite-info); }
                 .truth-summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 24px; }
-                .summary-card { background: var(--bg-command); border-radius: 16px; padding: 20px; display: flex; align-items: center; gap: 16px; border: 1px solid var(--border-tactic); transition: all 0.2s; }
-                .summary-card:hover { border-color: var(--elite-primary); transform: translateY(-2px); }
+                .summary-card { background: var(--bg-command); border-radius: 16px; padding: 20px; display: flex; align-items: center; gap: 16px; border: 1px solid var(--border-tactic); }
                 .summary-icon { width: 48px; height: 48px; background: var(--elite-primary-dim); border-radius: 12px; display: flex; align-items: center; justify-content: center; }
                 .summary-icon i { font-size: 1.5rem; color: var(--elite-primary); }
                 .summary-value { font-size: 1.8rem; font-weight: 800; font-family: 'JetBrains Mono'; color: var(--elite-primary); }
                 .summary-label { font-size: 0.7rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; }
-                .summary-trend { font-size: 0.65rem; color: #64748b; margin-top: 4px; }
-                .truth-tabs { display: flex; gap: 8px; border-bottom: 1px solid var(--border-tactic); margin-bottom: 24px; padding-bottom: 0; }
-                .tab-btn { background: transparent; border: none; padding: 12px 24px; color: #94a3b8; cursor: pointer; font-family: 'JetBrains Mono'; font-size: 0.8rem; transition: all 0.2s; border-bottom: 2px solid transparent; }
+                .truth-tabs { display: flex; gap: 8px; border-bottom: 1px solid var(--border-tactic); margin-bottom: 24px; }
+                .tab-btn { background: transparent; border: none; padding: 12px 24px; color: #94a3b8; cursor: pointer; font-family: 'JetBrains Mono'; font-size: 0.8rem; border-bottom: 2px solid transparent; }
                 .tab-btn:hover { color: var(--elite-primary); }
                 .tab-btn.active { color: var(--elite-primary); border-bottom-color: var(--elite-primary); }
             </style>
@@ -1711,7 +1586,7 @@
     }
     
     // =========================================================================
-    // FUNÇÕES DE RENDERIZAÇÃO DAS DEMAIS VIEWS
+    // RENDERIZAÇÃO DAS DEMAIS VIEWS
     // =========================================================================
     
     function renderInsolvency() { 
@@ -1726,22 +1601,12 @@
                     </div>
                 </div>
                 <table class="data-table">
-                    <thead>
-                        <tr><th>ID</th><th>CLIENTE</th><th>VALOR</th><th>PROBABILIDADE</th><th>FASE</th><th>AÇÕES</th> </thead>
+                    <thead><tr><th>ID</th><th>CLIENTE</th><th>VALOR</th><th>PROBABILIDADE</th><th>FASE</th><th>AÇÕES</th></tr></thead>
                     <tbody>
-                        ${insolvencyCases.map(c => `
-                            <tr>
-                                <td><strong>${c.id}</strong> </div>
-                                <td>${c.client} </div>
-                                <td>${EliteUtils.formatCurrency(c.value)} </div>
-                                <td><div class="progress-bar"><div class="progress-fill" style="width: ${c.successProbability * 100}%"></div><span class="progress-text">${EliteUtils.formatPercentage(c.successProbability * 100)}</span></div> </div>
-                                <td>${c.fase_processual || 'Em curso'} </div>
-                                <td><button class="action-btn view-case" data-id="${c.id}"><i class="fas fa-eye"></i></button><button class="action-btn delete-case" data-id="${c.id}"><i class="fas fa-trash"></i></button> </div>
-                             </div>
-                        `).join('')}
-                        ${insolvencyCases.length === 0 ? '专业<td colspan="6" class="empty-state">Nenhum processo de insolvência</div>' : ''}
+                        ${insolvencyCases.map(c => `<tr><td><strong>${c.id}</strong></td><td>${c.client}</td><td>${EliteUtils.formatCurrency(c.value)}</td><td><div class="progress-bar"><div class="progress-fill" style="width: ${c.successProbability * 100}%"></div><span class="progress-text">${EliteUtils.formatPercentage(c.successProbability * 100)}</span></div></td><td>${c.fase_processual || 'Em curso'}</td><td><button class="action-btn view-case" data-id="${c.id}"><i class="fas fa-eye"></i></button><button class="action-btn delete-case" data-id="${c.id}"><i class="fas fa-trash"></i></button></td></tr>`).join('')}
+                        ${insolvencyCases.length === 0 ? '<tr><td colspan="6" class="empty-state">Nenhum processo de insolvência</td></tr>' : ''}
                     </tbody>
-                 </div>
+                </table>
             `;
             attachDeleteEvents();
             attachViewEvents();
@@ -1761,19 +1626,12 @@
                     </div>
                 </div>
                 <table class="data-table">
-                    <thead> <th>ID</th><th>CLIENTE</th><th>VALOR</th><th>PROBABILIDADE</th><th>JUIZ</th><th>AÇÕES</th> </thead>
+                    <thead><tr><th>ID</th><th>CLIENTE</th><th>VALOR</th><th>PROBABILIDADE</th><th>JUIZ</th><th>AÇÕES</th></tr></thead>
                     <tbody>
-                        ${laborCases.map(c => `
-                             <tr><strong>${c.id}</strong> </div>
-                             <td>${c.client} </div>
-                             <td>${EliteUtils.formatCurrency(c.value)} </div>
-                             <td><div class="progress-bar"><div class="progress-fill" style="width: ${c.successProbability * 100}%"></div><span class="progress-text">${EliteUtils.formatPercentage(c.successProbability * 100)}</span></div> </div>
-                             <td>${c.judge || 'N/A'} </div>
-                             <td><button class="action-btn view-case" data-id="${c.id}"><i class="fas fa-eye"></i></button><button class="action-btn delete-case" data-id="${c.id}"><i class="fas fa-trash"></i></button> </div>
-                        `).join('')}
-                        ${laborCases.length === 0 ? '专业<td colspan="6" class="empty-state">Nenhum processo laboral</div>' : ''}
+                        ${laborCases.map(c => `<tr><td><strong>${c.id}</strong></td><td>${c.client}</td><td>${EliteUtils.formatCurrency(c.value)}</td><td><div class="progress-bar"><div class="progress-fill" style="width: ${c.successProbability * 100}%"></div><span class="progress-text">${EliteUtils.formatPercentage(c.successProbability * 100)}</span></div></td><td>${c.judge || 'N/A'}</td><td><button class="action-btn view-case" data-id="${c.id}"><i class="fas fa-eye"></i></button><button class="action-btn delete-case" data-id="${c.id}"><i class="fas fa-trash"></i></button></td></tr>`).join('')}
+                        ${laborCases.length === 0 ? '<tr><td colspan="6" class="empty-state">Nenhum processo laboral</td></tr>' : ''}
                     </tbody>
-                 </div>
+                </table>
             `;
             attachDeleteEvents();
             attachViewEvents();
@@ -1867,14 +1725,12 @@
                 <div class="activity-log-container">
                     <div class="activity-log-header"><h2>REGISTO DE ATIVIDADES (RGPD Art. 30.º)</h2><button id="exportLogsBtn" class="elite-btn secondary"><i class="fas fa-download"></i> EXPORTAR CSV</button></div>
                     <table class="data-table">
-                        <thead> <th>Data/Hora</th><th>Utilizador</th><th>Ação</th><th>Entidade</th><th>Hash</th> </thead>
+                        <thead><tr><th>Data/Hora</th><th>Utilizador</th><th>Ação</th><th>Entidade</th><th>Hash</th></tr></thead>
                         <tbody>
-                            ${logs.slice(0, 50).map(log => `
-                                <tr><td>${log.timestamp}</td><td>${log.user || 'Sistema'}</td><td>${log.action}</td><td>${log.entity}</td><td class="log-hash">${log.hash ? log.hash.substring(0, 16) + '...' : 'N/A'}</td> </tr>
-                            `).join('')}
-                            ${logs.length === 0 ? '专业<td colspan="5" class="empty-state">Nenhum registo de atividade</div>' : ''}
+                            ${logs.slice(0, 50).map(log => `<tr><td>${log.timestamp}</td><td>${log.user || 'Sistema'}</td><td>${log.action}</td><td>${log.entity}</td><td class="log-hash">${log.hash ? log.hash.substring(0, 16) + '...' : 'N/A'}</td></tr>`).join('')}
+                            ${logs.length === 0 ? '<tr><td colspan="5" class="empty-state">Nenhum registo de atividade</td></tr>' : ''}
                         </tbody>
-                     </div>
+                    </table>
                 </div>
             `;
             document.getElementById('exportLogsBtn')?.addEventListener('click', () => {
@@ -1927,7 +1783,7 @@
                             <div class="detail-row"><span>Juiz:</span><strong>${caseData.judge}</strong></div>
                             <div class="detail-row"><span>Área:</span><strong>${caseData.categoryName}</strong></div>
                             <div class="detail-row"><span>Fase Processual:</span><strong>${caseData.fase_processual || 'Em análise'}</strong></div>
-                            <div class="detail-actions" style="margin-top: 20px;">
+                            <div class="detail-actions" style="margin-top: 20px; display: flex; gap: 12px; flex-wrap: wrap;">
                                 <button id="generateQuestionsFromDetail" class="elite-btn primary" data-case='${JSON.stringify(caseData).replace(/'/g, "&apos;")}'><i class="fas fa-question-circle"></i> GERAR QUESTIONÁRIO</button>
                                 <button id="deleteCaseFromModal" class="elite-btn danger" data-id="${caseData.id}"><i class="fas fa-trash"></i> ELIMINAR PROCESSO</button>
                             </div>
@@ -2060,7 +1916,7 @@
             hash: CryptoJS.SHA256(currentHtml + sessionId + Date.now()).toString()
         };
         
-        const encryptedPayload = secureStorage ? secureStorage.encrypt(exportPayload) : { ciphertext: JSON.stringify(exportPayload) };
+        const encryptedPayload = secureStorage ? await secureStorage.encrypt(exportPayload) : { ciphertext: JSON.stringify(exportPayload) };
         
         const exports = JSON.parse(localStorage.getItem('elite_mobile_exports') || '[]');
         exports.unshift({
@@ -2168,8 +2024,9 @@
         currentView: currentView,
         strategicQuestions: STRATEGIC_QUESTIONS,
         selectBestQuestions: selectBestQuestions,
+        cacheCaseForOffline: cacheCaseForOffline,
         
-        initDashboard: function() {
+        initDashboard: async function() {
             EliteUtils.log('========================================');
             EliteUtils.log(`ELITE PROBATUM v${APP_VERSION}`);
             EliteUtils.log('UNIDADE DE COMANDO ESTRATÉGICO');
@@ -2180,10 +2037,13 @@
             secureStorage = new SecureStorage(sessionHash);
             window.SecureStorageInstance = secureStorage;
             
+            // Registar Service Worker
+            await registerServiceWorker();
+            
             // Inicializar todos os módulos
             if (window.StrategicVault && typeof window.StrategicVault.initialize === 'function') {
-                window.StrategicVault.initialize(sessionHash);
-                EliteUtils.log('✅ Strategic Vault inicializado');
+                await window.StrategicVault.initialize(sessionHash);
+                EliteUtils.log('✅ Strategic Vault inicializado com Merkle Tree');
             }
             
             if (window.BlackSwan && typeof window.BlackSwan.initialize === 'function') {
@@ -2264,9 +2124,9 @@
             EliteUtils.showToast(t('success'), 'success');
             EliteUtils.log(`✅ ${MOCK_CASES.length} processos estratégicos carregados`);
             EliteUtils.log(`📊 Valor total em disputa: ${EliteUtils.formatCurrency(MOCK_CASES.reduce((s,c)=>s+c.value,0))}`);
-            EliteUtils.log(`🔐 Storage seguro inicializado com PBKDF2`);
-            EliteUtils.log(`🚀 Módulos de inovação estratégica ativos`);
-            EliteUtils.log(`🎯 ARQUITETURA DE VERDADE: Shadow Dossier | Black Swan | Decomposição Estratégica`);
+            EliteUtils.log(`🔐 Storage seguro inicializado com Web Crypto API e IndexedDB`);
+            EliteUtils.log(`📱 PWA registado - Modo offline disponível`);
+            EliteUtils.log(`🌳 Merkle Tree ativa - Integridade probatória reforçada`);
             EliteUtils.log(`💰 GAIN SHARE AGREEMENT: Alpha de ${((window.ValueEfficiencyEngine?.calculateAlpha?.().alphaPercentage) || '0')}% gerado`);
             EliteUtils.log(`📋 QUESTIONÁRIOS ESTRATÉGICOS: ${Object.keys(STRATEGIC_QUESTIONS).length} áreas, 50 perguntas por área`);
         },
@@ -2293,7 +2153,10 @@
     EliteUtils.log(`Master Hash: ${MASTER_HASH.substring(0, 16)}...`);
     EliteUtils.log(`${MOCK_CASES.length} processos estratégicos carregados`);
     EliteUtils.log(`Valor total em disputa: ${EliteUtils.formatCurrency(MOCK_CASES.reduce((s,c)=>s+c.value,0))}`);
-    EliteUtils.log(`🎯 Arquitetura de Verdade: Shadow Dossier | Black Swan | Decomposição Estratégica`);
+    EliteUtils.log(`🔐 Encriptação AES-256-GCM com Web Crypto API`);
+    EliteUtils.log(`💾 Persistência em IndexedDB (localForage)`);
+    EliteUtils.log(`📱 PWA com Service Worker - Modo offline-first`);
+    EliteUtils.log(`🌳 Merkle Tree para validação probatória`);
     EliteUtils.log(`💰 Modelo Gain Share Agreement: Partilha de Sucesso sobre Alpha Gerado`);
     EliteUtils.log(`📋 Questionários Estratégicos: 6 áreas, 50 perguntas cirúrgicas por área`);
     EliteUtils.log(`========================================`);

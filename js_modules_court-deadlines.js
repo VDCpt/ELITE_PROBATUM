@@ -2,7 +2,7 @@
  * ============================================================================
  * ELITE PROBATUM — MÓDULO DE PRAZOS JUDICIAIS
  * ============================================================================
- * CORREÇÃO v2.0.3:
+ * CORREÇÃO v2.0.5:
  * 1. Implementação exata do algoritmo de Meeus/Jones/Butcher para cálculo da Páscoa
  * 2. Inclusão de feriados móveis (Carnaval, Corpo de Deus)
  * 3. Validação de datas com base no calendário judicial português
@@ -15,33 +15,21 @@ class CourtDeadlines {
         this.monitorInterval = null;
         this.notificationCallback = null;
         
-        // Férias judiciais em Portugal (dias em que os prazos suspendem)
         this.judicialHolidays = {
             christmas: { start: '12-20', end: '01-07' },
-            easter: { start: null, end: null }, // Calculado dinamicamente
+            easter: { start: null, end: null },
             summer: { start: '07-15', end: '09-01' }
         };
         
-        // Dias de feriado nacional (suspensão de prazos)
         this.nationalHolidays = [
-            '01-01', // Ano Novo
-            '04-25', // Dia da Liberdade
-            '05-01', // Dia do Trabalhador
-            '06-10', // Dia de Portugal
-            '08-15', // Assunção de Nossa Senhora
-            '10-05', // Implantação da República
-            '11-01', // Dia de Todos os Santos
-            '12-01', // Restauração da Independência
-            '12-08', // Imaculada Conceição
-            '12-25'  // Natal
+            '01-01', '04-25', '05-01', '06-10', '08-15', '10-05', '11-01', '12-01', '12-08', '12-25'
         ];
         
-        // Feriados móveis (calculados anualmente)
         this.movableHolidays = {
-            carnival: null,      // Terça-feira de Carnaval (47 dias antes da Páscoa)
-            goodFriday: null,    // Sexta-feira Santa (2 dias antes da Páscoa)
-            easterSunday: null,  // Domingo de Páscoa
-            corpusChristi: null  // Corpo de Deus (60 dias após a Páscoa)
+            carnival: null,
+            goodFriday: null,
+            easterSunday: null,
+            corpusChristi: null
         };
         
         this.loadDeadlines();
@@ -52,197 +40,198 @@ class CourtDeadlines {
      * Inicializa o módulo e começa a monitorização
      */
     initialize() {
-        this.loadDeadlines();
-        this.startMonitoring();
-        console.log('[ELITE] CourtDeadlines inicializado com', this.deadlines.length, 'prazos');
+        try {
+            this.loadDeadlines();
+            this.startMonitoring();
+            console.log('[ELITE] CourtDeadlines inicializado com', this.deadlines.length, 'prazos');
+        } catch (error) {
+            console.error('[ELITE] Erro na inicialização do CourtDeadlines:', error);
+        }
         return this;
     }
     
     /**
-     * CORREÇÃO: Cálculo exato da Páscoa pelo algoritmo de Meeus/Jones/Butcher
-     * Implementação validada para anos entre 1900 e 2099
-     * @param {number} year - Ano para cálculo
-     * @returns {Date} Data do Domingo de Páscoa
+     * Cálculo exato da Páscoa pelo algoritmo de Meeus/Jones/Butcher
      */
     calculateEasterDate(year) {
-        // Algoritmo de Meeus/Jones/Butcher (validação astronómica)
-        const a = year % 19;
-        const b = Math.floor(year / 100);
-        const c = year % 100;
-        const d = Math.floor(b / 4);
-        const e = b % 4;
-        const f = Math.floor((b + 8) / 25);
-        const g = Math.floor((b - f + 1) / 3);
-        const h = (19 * a + b - d - g + 15) % 30;
-        const i = Math.floor(c / 4);
-        const k = c % 4;
-        const l = (32 + 2 * e + 2 * i - h - k) % 7;
-        const m = Math.floor((a + 11 * h + 22 * l) / 451);
-        const month = Math.floor((h + l - 7 * m + 114) / 31);
-        const day = ((h + l - 7 * m + 114) % 31) + 1;
-        
-        return new Date(year, month - 1, day);
+        try {
+            const a = year % 19;
+            const b = Math.floor(year / 100);
+            const c = year % 100;
+            const d = Math.floor(b / 4);
+            const e = b % 4;
+            const f = Math.floor((b + 8) / 25);
+            const g = Math.floor((b - f + 1) / 3);
+            const h = (19 * a + b - d - g + 15) % 30;
+            const i = Math.floor(c / 4);
+            const k = c % 4;
+            const l = (32 + 2 * e + 2 * i - h - k) % 7;
+            const m = Math.floor((a + 11 * h + 22 * l) / 451);
+            const month = Math.floor((h + l - 7 * m + 114) / 31);
+            const day = ((h + l - 7 * m + 114) % 31) + 1;
+            return new Date(year, month - 1, day);
+        } catch (error) {
+            return new Date(year, 3, 20);
+        }
     }
     
     /**
-     * CORREÇÃO: Calcula todos os feriados móveis para um determinado ano
-     * @param {number} year - Ano para cálculo
+     * Calcula todos os feriados móveis para um determinado ano
      */
     calculateMovableHolidays(year) {
-        const easterDate = this.calculateEasterDate(year);
-        
-        // Domingo de Páscoa
-        this.movableHolidays.easterSunday = easterDate;
-        
-        // Sexta-feira Santa (2 dias antes da Páscoa)
-        const goodFriday = new Date(easterDate);
-        goodFriday.setDate(easterDate.getDate() - 2);
-        this.movableHolidays.goodFriday = goodFriday;
-        
-        // Terça-feira de Carnaval (47 dias antes da Páscoa)
-        const carnival = new Date(easterDate);
-        carnival.setDate(easterDate.getDate() - 47);
-        this.movableHolidays.carnival = carnival;
-        
-        // Corpo de Deus (60 dias após a Páscoa)
-        const corpusChristi = new Date(easterDate);
-        corpusChristi.setDate(easterDate.getDate() + 60);
-        this.movableHolidays.corpusChristi = corpusChristi;
-        
-        // Atualizar férias judiciais da Páscoa (semana santa)
-        const easterStart = new Date(easterDate);
-        easterStart.setDate(easterDate.getDate() - 7); // Domingo de Ramos
-        const easterEnd = new Date(easterDate);
-        easterEnd.setDate(easterDate.getDate() + 7);   // Domingo da Misericórdia
-        
-        this.judicialHolidays.easter = {
-            start: this.formatMonthDay(easterStart),
-            end: this.formatMonthDay(easterEnd)
-        };
-        
-        console.log(`[ELITE] Feriados móveis ${year}: Páscoa=${this.formatDate(easterDate)}, Carnaval=${this.formatDate(carnival)}, Corpo Deus=${this.formatDate(corpusChristi)}`);
+        try {
+            const easterDate = this.calculateEasterDate(year);
+            this.movableHolidays.easterSunday = easterDate;
+            
+            const goodFriday = new Date(easterDate);
+            goodFriday.setDate(easterDate.getDate() - 2);
+            this.movableHolidays.goodFriday = goodFriday;
+            
+            const carnival = new Date(easterDate);
+            carnival.setDate(easterDate.getDate() - 47);
+            this.movableHolidays.carnival = carnival;
+            
+            const corpusChristi = new Date(easterDate);
+            corpusChristi.setDate(easterDate.getDate() + 60);
+            this.movableHolidays.corpusChristi = corpusChristi;
+            
+            const easterStart = new Date(easterDate);
+            easterStart.setDate(easterDate.getDate() - 7);
+            const easterEnd = new Date(easterDate);
+            easterEnd.setDate(easterDate.getDate() + 7);
+            this.judicialHolidays.easter = {
+                start: this.formatMonthDay(easterStart),
+                end: this.formatMonthDay(easterEnd)
+            };
+            
+            console.log(`[ELITE] Feriados móveis ${year}: Páscoa=${this.formatDate(easterDate)}`);
+        } catch (error) {
+            console.error('[ELITE] Erro ao calcular feriados móveis:', error);
+        }
     }
     
     /**
      * Verifica se uma data é feriado móvel
-     * @param {Date} date - Data a verificar
-     * @returns {boolean}
      */
     isMovableHoliday(date) {
-        const year = date.getFullYear();
-        
-        // Garantir que os feriados móveis estão calculados para o ano correto
-        if (!this.movableHolidays.easterSunday || this.movableHolidays.easterSunday.getFullYear() !== year) {
-            this.calculateMovableHolidays(year);
+        try {
+            const year = date.getFullYear();
+            if (!this.movableHolidays.easterSunday || this.movableHolidays.easterSunday.getFullYear() !== year) {
+                this.calculateMovableHolidays(year);
+            }
+            const dateStr = this.formatDateISO(date);
+            const movableDates = [this.movableHolidays.carnival, this.movableHolidays.goodFriday, this.movableHolidays.easterSunday, this.movableHolidays.corpusChristi];
+            return movableDates.some(holiday => holiday && this.formatDateISO(holiday) === dateStr);
+        } catch (error) {
+            return false;
         }
-        
-        const dateStr = this.formatDateISO(date);
-        
-        const movableDates = [
-            this.movableHolidays.carnival,
-            this.movableHolidays.goodFriday,
-            this.movableHolidays.easterSunday,
-            this.movableHolidays.corpusChristi
-        ];
-        
-        return movableDates.some(holiday => 
-            holiday && this.formatDateISO(holiday) === dateStr
-        );
     }
     
     /**
      * Verifica se a data está dentro do período de férias judiciais
-     * @param {Date} date - Data a verificar
-     * @returns {boolean}
      */
     isJudicialHoliday(date) {
-        const year = date.getFullYear();
-        
-        // Garantir que os feriados móveis estão calculados para o ano correto
-        if (!this.movableHolidays.easterSunday || this.movableHolidays.easterSunday.getFullYear() !== year) {
-            this.calculateMovableHolidays(year);
+        try {
+            const year = date.getFullYear();
+            if (!this.movableHolidays.easterSunday || this.movableHolidays.easterSunday.getFullYear() !== year) {
+                this.calculateMovableHolidays(year);
+            }
+            const month = date.getMonth() + 1;
+            const day = date.getDate();
+            const christmasStart = this.parseMonthDay(this.judicialHolidays.christmas.start);
+            const christmasEnd = this.parseMonthDay(this.judicialHolidays.christmas.end);
+            if (this.isDateInRange(month, day, christmasStart, christmasEnd)) return true;
+            const summerStart = this.parseMonthDay(this.judicialHolidays.summer.start);
+            const summerEnd = this.parseMonthDay(this.judicialHolidays.summer.end);
+            if (this.isDateInRange(month, day, summerStart, summerEnd)) return true;
+            const easterStart = this.parseMonthDay(this.judicialHolidays.easter.start);
+            const easterEnd = this.parseMonthDay(this.judicialHolidays.easter.end);
+            if (this.isDateInRange(month, day, easterStart, easterEnd)) return true;
+            return false;
+        } catch (error) {
+            return false;
         }
-        
-        const month = date.getMonth() + 1;
-        const day = date.getDate();
-        
-        // Natal/Ano Novo
-        const christmasStart = this.parseMonthDay(this.judicialHolidays.christmas.start);
-        const christmasEnd = this.parseMonthDay(this.judicialHolidays.christmas.end);
-        if (this.isDateInRange(month, day, christmasStart, christmasEnd)) {
-            return true;
-        }
-        
-        // Verão
-        const summerStart = this.parseMonthDay(this.judicialHolidays.summer.start);
-        const summerEnd = this.parseMonthDay(this.judicialHolidays.summer.end);
-        if (this.isDateInRange(month, day, summerStart, summerEnd)) {
-            return true;
-        }
-        
-        // CORREÇÃO: Férias da Páscoa usando datas calculadas dinamicamente
-        const easterStart = this.parseMonthDay(this.judicialHolidays.easter.start);
-        const easterEnd = this.parseMonthDay(this.judicialHolidays.easter.end);
-        if (this.isDateInRange(month, day, easterStart, easterEnd)) {
-            return true;
-        }
-        
-        return false;
     }
     
     /**
-     * Verifica se uma data é dia útil (não é fim de semana nem feriado)
-     * @param {Date} date - Data a verificar
-     * @returns {boolean}
+     * Verifica se uma data é dia útil
      */
     isBusinessDay(date) {
-        const dayOfWeek = date.getDay();
-        // 0 = Domingo, 6 = Sábado
-        if (dayOfWeek === 0 || dayOfWeek === 6) {
-            return false;
+        try {
+            const dayOfWeek = date.getDay();
+            if (dayOfWeek === 0 || dayOfWeek === 6) return false;
+            const monthDay = this.formatMonthDay(date);
+            if (this.nationalHolidays.includes(monthDay)) return false;
+            if (this.isMovableHoliday(date)) return false;
+            if (this.isJudicialHoliday(date)) return false;
+            return true;
+        } catch (error) {
+            return true;
         }
-        
-        // Verificar feriados nacionais
-        const monthDay = this.formatMonthDay(date);
-        if (this.nationalHolidays.includes(monthDay)) {
-            return false;
-        }
-        
-        // Verificar feriados móveis
-        if (this.isMovableHoliday(date)) {
-            return false;
-        }
-        
-        // Verificar férias judiciais
-        if (this.isJudicialHoliday(date)) {
-            return false;
-        }
-        
-        return true;
     }
     
     /**
-     * Calcula a data da Páscoa para um determinado ano (método público)
-     * @param {number} year - Ano
-     * @returns {Date}
+     * Calcula a data limite com base em dias úteis
      */
-    getEasterDate(year) {
-        return this.calculateEasterDate(year);
+    calculateDueDate(startDate, businessDays) {
+        try {
+            const start = new Date(startDate);
+            start.setHours(0, 0, 0, 0);
+            let current = new Date(start);
+            let remaining = businessDays;
+            while (remaining > 0) {
+                current.setDate(current.getDate() + 1);
+                if (this.isBusinessDay(current)) remaining--;
+            }
+            return current;
+        } catch (error) {
+            return new Date();
+        }
     }
     
     /**
-     * Obtém todos os feriados móveis para um ano
-     * @param {number} year - Ano
-     * @returns {Object}
+     * Calcula prioridade do prazo (1-5, onde 5 é mais urgente)
      */
-    getMovableHolidays(year) {
-        this.calculateMovableHolidays(year);
-        return {
-            carnival: this.movableHolidays.carnival,
-            goodFriday: this.movableHolidays.goodFriday,
-            easterSunday: this.movableHolidays.easterSunday,
-            corpusChristi: this.movableHolidays.corpusChristi
-        };
+    calculatePriority(dueDate) {
+        try {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const due = new Date(dueDate);
+            due.setHours(0, 0, 0, 0);
+            const diffDays = Math.ceil((due - today) / (1000 * 60 * 60 * 24));
+            if (diffDays < 0) return 5;
+            if (diffDays === 0) return 5;
+            if (diffDays <= 3) return 4;
+            if (diffDays <= 7) return 3;
+            if (diffDays <= 15) return 2;
+            return 1;
+        } catch (error) {
+            return 3;
+        }
+    }
+    
+    /**
+     * Analisa string de data no formato DD/MM/YYYY
+     */
+    parseDate(dateStr) {
+        if (!dateStr) return null;
+        const parts = dateStr.split('/');
+        if (parts.length === 3) {
+            return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+        }
+        return new Date(dateStr);
+    }
+    
+    /**
+     * Formata data no formato DD/MM/YYYY
+     */
+    formatDate(date) {
+        if (!date) return '';
+        const d = new Date(date);
+        const day = d.getDate().toString().padStart(2, '0');
+        const month = (d.getMonth() + 1).toString().padStart(2, '0');
+        const year = d.getFullYear();
+        return `${day}/${month}/${year}`;
     }
     
     /**
@@ -274,102 +263,32 @@ class CourtDeadlines {
     }
     
     /**
-     * Verifica se uma data está dentro de um intervalo (considerando ano)
+     * Verifica se uma data está dentro de um intervalo
      */
     isDateInRange(month, day, start, end) {
         const dateValue = month * 100 + day;
         const startValue = start.month * 100 + start.day;
         const endValue = end.month * 100 + end.day;
-        
         if (startValue <= endValue) {
             return dateValue >= startValue && dateValue <= endValue;
         } else {
-            // Intervalo que cruza o ano (ex: Dezembro a Janeiro)
             return dateValue >= startValue || dateValue <= endValue;
         }
-    }
-    
-    /**
-     * Calcula a data limite com base em dias úteis
-     * @param {Date|string} startDate - Data de início
-     * @param {number} businessDays - Número de dias úteis
-     * @returns {Date} Data limite
-     */
-    calculateDueDate(startDate, businessDays) {
-        const start = new Date(startDate);
-        start.setHours(0, 0, 0, 0);
-        
-        let current = new Date(start);
-        let remaining = businessDays;
-        
-        while (remaining > 0) {
-            current.setDate(current.getDate() + 1);
-            if (this.isBusinessDay(current)) {
-                remaining--;
-            }
-        }
-        
-        return current;
-    }
-    
-    /**
-     * Calcula prioridade do prazo (1-5, onde 5 é mais urgente)
-     * @param {Date|string} dueDate - Data de vencimento
-     * @returns {number}
-     */
-    calculatePriority(dueDate) {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const due = new Date(dueDate);
-        due.setHours(0, 0, 0, 0);
-        
-        const diffDays = Math.ceil((due - today) / (1000 * 60 * 60 * 24));
-        
-        if (diffDays < 0) return 5; // Vencido
-        if (diffDays === 0) return 5; // Hoje
-        if (diffDays <= 3) return 4;
-        if (diffDays <= 7) return 3;
-        if (diffDays <= 15) return 2;
-        return 1;
-    }
-    
-    /**
-     * Analisa string de data no formato DD/MM/YYYY
-     */
-    parseDate(dateStr) {
-        if (!dateStr) return null;
-        const parts = dateStr.split('/');
-        if (parts.length === 3) {
-            return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
-        }
-        return new Date(dateStr);
-    }
-    
-    /**
-     * Formata data no formato DD/MM/YYYY
-     */
-    formatDate(date) {
-        if (!date) return '';
-        const d = new Date(date);
-        const day = d.getDate().toString().padStart(2, '0');
-        const month = (d.getMonth() + 1).toString().padStart(2, '0');
-        const year = d.getFullYear();
-        return `${day}/${month}/${year}`;
     }
     
     /**
      * Carrega prazos do localStorage
      */
     loadDeadlines() {
-        const stored = localStorage.getItem('elite_deadlines');
-        if (stored) {
-            try {
+        try {
+            const stored = localStorage.getItem('elite_deadlines');
+            if (stored) {
                 this.deadlines = JSON.parse(stored);
-            } catch (e) {
-                console.error('[ELITE] Erro ao carregar prazos:', e);
+            } else {
                 this.deadlines = [];
             }
-        } else {
+        } catch (e) {
+            console.error('[ELITE] Erro ao carregar prazos:', e);
             this.deadlines = [];
         }
         return this.deadlines;
@@ -379,167 +298,166 @@ class CourtDeadlines {
      * Persiste prazos no localStorage
      */
     saveDeadlines() {
-        localStorage.setItem('elite_deadlines', JSON.stringify(this.deadlines));
+        try {
+            localStorage.setItem('elite_deadlines', JSON.stringify(this.deadlines));
+        } catch (e) {
+            console.error('[ELITE] Erro ao salvar prazos:', e);
+        }
         return this;
     }
     
     /**
      * Adiciona um novo prazo
-     * @param {Object} deadline - Objeto com dados do prazo
-     * @returns {Object} Prazo adicionado
      */
     addDeadline(deadline) {
-        const newDeadline = {
-            id: Date.now(),
-            caseId: deadline.caseId,
-            description: deadline.description,
-            dueDate: deadline.dueDate,
-            dueDateRaw: deadline.dueDateRaw || this.parseDate(deadline.dueDate),
-            type: deadline.type || 'judicial',
-            priority: deadline.priority || this.calculatePriority(deadline.dueDate),
-            notes: deadline.notes || '',
-            status: 'pending',
-            createdAt: new Date().toISOString(),
-            notified: false,
-            reminderSent: false
-        };
-        
-        this.deadlines.push(newDeadline);
-        this.saveDeadlines();
-        this.checkUrgentDeadlines();
-        
-        return newDeadline;
+        try {
+            const newDeadline = {
+                id: Date.now(),
+                caseId: deadline.caseId,
+                description: deadline.description,
+                dueDate: deadline.dueDate,
+                dueDateRaw: deadline.dueDateRaw || this.parseDate(deadline.dueDate),
+                type: deadline.type || 'judicial',
+                priority: deadline.priority || this.calculatePriority(deadline.dueDate),
+                notes: deadline.notes || '',
+                status: 'pending',
+                createdAt: new Date().toISOString(),
+                notified: false,
+                reminderSent: false
+            };
+            this.deadlines.push(newDeadline);
+            this.saveDeadlines();
+            this.checkUrgentDeadlines();
+            return newDeadline;
+        } catch (error) {
+            console.error('[ELITE] Erro ao adicionar prazo:', error);
+            return null;
+        }
     }
     
     /**
      * Atualiza um prazo existente
-     * @param {number} id - ID do prazo
-     * @param {Object} updates - Campos a atualizar
      */
     updateDeadline(id, updates) {
-        const index = this.deadlines.findIndex(d => d.id === id);
-        if (index !== -1) {
-            this.deadlines[index] = { ...this.deadlines[index], ...updates };
-            if (updates.dueDate) {
-                this.deadlines[index].dueDateRaw = this.parseDate(updates.dueDate);
-                this.deadlines[index].priority = this.calculatePriority(updates.dueDate);
+        try {
+            const index = this.deadlines.findIndex(d => d.id === id);
+            if (index !== -1) {
+                this.deadlines[index] = { ...this.deadlines[index], ...updates };
+                if (updates.dueDate) {
+                    this.deadlines[index].dueDateRaw = this.parseDate(updates.dueDate);
+                    this.deadlines[index].priority = this.calculatePriority(updates.dueDate);
+                }
+                this.saveDeadlines();
             }
-            this.saveDeadlines();
+        } catch (error) {
+            console.error('[ELITE] Erro ao atualizar prazo:', error);
         }
         return this;
     }
     
     /**
      * Remove um prazo
-     * @param {number} id - ID do prazo
      */
     deleteDeadline(id) {
-        this.deadlines = this.deadlines.filter(d => d.id !== id);
-        this.saveDeadlines();
+        try {
+            this.deadlines = this.deadlines.filter(d => d.id !== id);
+            this.saveDeadlines();
+        } catch (error) {
+            console.error('[ELITE] Erro ao remover prazo:', error);
+        }
         return this;
     }
     
     /**
      * Obtém prazos de um caso específico
-     * @param {string} caseId - ID do processo
-     * @returns {Array} Lista de prazos
      */
     getDeadlinesByCase(caseId) {
-        return this.deadlines.filter(d => d.caseId === caseId);
+        try {
+            return this.deadlines.filter(d => d.caseId === caseId);
+        } catch (error) {
+            return [];
+        }
     }
     
     /**
      * Obtém prazos pendentes
-     * @param {number} days - Dias para frente (opcional)
-     * @returns {Array} Lista de prazos pendentes
      */
     getPendingDeadlines(days = null) {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        
-        let filtered = this.deadlines.filter(d => {
-            const dueDate = new Date(d.dueDateRaw);
-            dueDate.setHours(0, 0, 0, 0);
-            return d.status === 'pending' && dueDate >= today;
-        });
-        
-        if (days) {
-            const limit = new Date();
-            limit.setDate(limit.getDate() + days);
-            limit.setHours(23, 59, 59, 999);
-            filtered = filtered.filter(d => new Date(d.dueDateRaw) <= limit);
+        try {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            let filtered = this.deadlines.filter(d => {
+                const dueDate = new Date(d.dueDateRaw);
+                dueDate.setHours(0, 0, 0, 0);
+                return d.status === 'pending' && dueDate >= today;
+            });
+            if (days) {
+                const limit = new Date();
+                limit.setDate(limit.getDate() + days);
+                limit.setHours(23, 59, 59, 999);
+                filtered = filtered.filter(d => new Date(d.dueDateRaw) <= limit);
+            }
+            return filtered.sort((a, b) => new Date(a.dueDateRaw) - new Date(b.dueDateRaw));
+        } catch (error) {
+            return [];
         }
-        
-        return filtered.sort((a, b) => new Date(a.dueDateRaw) - new Date(b.dueDateRaw));
     }
     
     /**
      * Obtém prazos vencidos
-     * @returns {Array} Lista de prazos vencidos
      */
     getOverdueDeadlines() {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        
-        return this.deadlines.filter(d => {
-            const dueDate = new Date(d.dueDateRaw);
-            dueDate.setHours(0, 0, 0, 0);
-            return d.status === 'pending' && dueDate < today;
-        }).sort((a, b) => new Date(a.dueDateRaw) - new Date(b.dueDateRaw));
+        try {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            return this.deadlines.filter(d => {
+                const dueDate = new Date(d.dueDateRaw);
+                dueDate.setHours(0, 0, 0, 0);
+                return d.status === 'pending' && dueDate < today;
+            }).sort((a, b) => new Date(a.dueDateRaw) - new Date(b.dueDateRaw));
+        } catch (error) {
+            return [];
+        }
     }
     
     /**
      * Calcula dias úteis entre duas datas
-     * @param {Date|string} startDate - Data inicial
-     * @param {Date|string} endDate - Data final
-     * @returns {number} Número de dias úteis
      */
     calculateBusinessDays(startDate, endDate) {
-        const start = new Date(startDate);
-        const end = new Date(endDate);
-        start.setHours(0, 0, 0, 0);
-        end.setHours(0, 0, 0, 0);
-        
-        let businessDays = 0;
-        let current = new Date(start);
-        
-        while (current <= end) {
-            if (this.isBusinessDay(current)) {
-                businessDays++;
+        try {
+            const start = new Date(startDate);
+            const end = new Date(endDate);
+            start.setHours(0, 0, 0, 0);
+            end.setHours(0, 0, 0, 0);
+            let businessDays = 0;
+            let current = new Date(start);
+            while (current <= end) {
+                if (this.isBusinessDay(current)) businessDays++;
+                current.setDate(current.getDate() + 1);
             }
-            current.setDate(current.getDate() + 1);
+            return businessDays;
+        } catch (error) {
+            return 0;
         }
-        
-        return businessDays;
     }
     
     /**
-     * Inicia monitorização de prazos (verifica a cada hora)
+     * Inicia monitorização de prazos
      */
     startMonitoring() {
-        if (this.monitorInterval) {
-            clearInterval(this.monitorInterval);
+        try {
+            if (this.monitorInterval) clearInterval(this.monitorInterval);
+            const currentYear = new Date().getFullYear();
+            this.calculateMovableHolidays(currentYear);
+            setInterval(() => {
+                const now = new Date();
+                if (now.getFullYear() !== currentYear) this.calculateMovableHolidays(now.getFullYear());
+            }, 24 * 60 * 60 * 1000);
+            this.monitorInterval = setInterval(() => { this.checkUrgentDeadlines(); }, 60 * 60 * 1000);
+            setTimeout(() => this.checkUrgentDeadlines(), 1000);
+        } catch (error) {
+            console.error('[ELITE] Erro ao iniciar monitorização:', error);
         }
-        
-        // Atualizar feriados móveis anualmente
-        const currentYear = new Date().getFullYear();
-        this.calculateMovableHolidays(currentYear);
-        
-        // Verificar mudança de ano a cada dia
-        setInterval(() => {
-            const now = new Date();
-            if (now.getFullYear() !== currentYear) {
-                this.calculateMovableHolidays(now.getFullYear());
-            }
-        }, 24 * 60 * 60 * 1000);
-        
-        this.monitorInterval = setInterval(() => {
-            this.checkUrgentDeadlines();
-        }, 60 * 60 * 1000); // A cada hora
-        
-        // Primeira verificação imediata
-        setTimeout(() => this.checkUrgentDeadlines(), 1000);
-        
         return this;
     }
     
@@ -558,64 +476,42 @@ class CourtDeadlines {
      * Verifica prazos urgentes e dispara notificações
      */
     checkUrgentDeadlines() {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        
-        const urgentThreshold = new Date();
-        urgentThreshold.setDate(urgentThreshold.getDate() + 3);
-        urgentThreshold.setHours(23, 59, 59, 999);
-        
-        const urgentDeadlines = this.deadlines.filter(d => {
-            if (d.status !== 'pending') return false;
-            const dueDate = new Date(d.dueDateRaw);
-            dueDate.setHours(0, 0, 0, 0);
-            return dueDate <= urgentThreshold;
-        });
-        
-        for (const deadline of urgentDeadlines) {
-            const dueDate = new Date(deadline.dueDateRaw);
-            const diffDays = Math.ceil((dueDate - today) / (1000 * 60 * 60 * 24));
-            
-            if (!deadline.notified && diffDays <= 3 && diffDays >= 0) {
-                this.notifyDeadline(deadline, diffDays);
-                deadline.notified = true;
+        try {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const urgentThreshold = new Date();
+            urgentThreshold.setDate(urgentThreshold.getDate() + 3);
+            urgentThreshold.setHours(23, 59, 59, 999);
+            const urgentDeadlines = this.deadlines.filter(d => {
+                if (d.status !== 'pending') return false;
+                const dueDate = new Date(d.dueDateRaw);
+                dueDate.setHours(0, 0, 0, 0);
+                return dueDate <= urgentThreshold;
+            });
+            for (const deadline of urgentDeadlines) {
+                const dueDate = new Date(deadline.dueDateRaw);
+                const diffDays = Math.ceil((dueDate - today) / (1000 * 60 * 60 * 24));
+                if (!deadline.notified && diffDays <= 3 && diffDays >= 0) { this.notifyDeadline(deadline, diffDays); deadline.notified = true; }
+                if (!deadline.reminderSent && diffDays === 1) { this.sendReminder(deadline); deadline.reminderSent = true; }
+                if (diffDays < 0 && deadline.status === 'pending') { this.notifyOverdue(deadline); deadline.status = 'overdue'; }
             }
-            
-            if (!deadline.reminderSent && diffDays === 1) {
-                this.sendReminder(deadline);
-                deadline.reminderSent = true;
-            }
-            
-            if (diffDays < 0 && deadline.status === 'pending') {
-                this.notifyOverdue(deadline);
-                deadline.status = 'overdue';
-            }
+            this.saveDeadlines();
+            return urgentDeadlines;
+        } catch (error) {
+            return [];
         }
-        
-        this.saveDeadlines();
-        return urgentDeadlines;
     }
     
     /**
      * Notifica sobre prazo próximo
      */
     notifyDeadline(deadline, daysLeft) {
-        const message = `⚠️ PRAZO JUDICIAL: ${deadline.description}\nProcesso: ${deadline.caseId}\nVence em ${daysLeft} ${daysLeft === 1 ? 'dia' : 'dias'} (${this.formatDate(deadline.dueDateRaw)})`;
-        
-        if (window.EliteUtils && window.EliteUtils.showToast) {
-            window.EliteUtils.showToast(message, daysLeft <= 1 ? 'error' : 'warning');
-        } else {
-            console.warn('[ELITE] Prazo próximo:', message);
-        }
-        
-        // Emitir evento para outros módulos
-        window.dispatchEvent(new CustomEvent('deadlineUrgent', {
-            detail: { deadline, daysLeft, message }
-        }));
-        
-        // Registrar no log de atividades
-        this.logActivity(deadline, `Prazo próximo (${daysLeft} dias)`);
-        
+        try {
+            const message = `⚠️ PRAZO JUDICIAL: ${deadline.description}\nProcesso: ${deadline.caseId}\nVence em ${daysLeft} ${daysLeft === 1 ? 'dia' : 'dias'} (${this.formatDate(deadline.dueDateRaw)})`;
+            if (window.EliteUtils && window.EliteUtils.showToast) window.EliteUtils.showToast(message, daysLeft <= 1 ? 'error' : 'warning');
+            window.dispatchEvent(new CustomEvent('deadlineUrgent', { detail: { deadline, daysLeft, message } }));
+            this.logActivity(deadline, `Prazo próximo (${daysLeft} dias)`);
+        } catch (error) { console.error('[ELITE] Erro ao notificar prazo:', error); }
         return this;
     }
     
@@ -623,21 +519,13 @@ class CourtDeadlines {
      * Notifica sobre prazo vencido
      */
     notifyOverdue(deadline) {
-        const overdueDays = Math.ceil((new Date() - new Date(deadline.dueDateRaw)) / (1000 * 60 * 60 * 24));
-        const message = `🔴 PRAZO VENCIDO: ${deadline.description}\nProcesso: ${deadline.caseId}\nVencido há ${overdueDays} ${overdueDays === 1 ? 'dia' : 'dias'}`;
-        
-        if (window.EliteUtils && window.EliteUtils.showToast) {
-            window.EliteUtils.showToast(message, 'error');
-        } else {
-            console.error('[ELITE] Prazo vencido:', message);
-        }
-        
-        window.dispatchEvent(new CustomEvent('deadlineOverdue', {
-            detail: { deadline, overdueDays, message }
-        }));
-        
-        this.logActivity(deadline, `Prazo vencido (${overdueDays} dias)`);
-        
+        try {
+            const overdueDays = Math.ceil((new Date() - new Date(deadline.dueDateRaw)) / (1000 * 60 * 60 * 24));
+            const message = `🔴 PRAZO VENCIDO: ${deadline.description}\nProcesso: ${deadline.caseId}\nVencido há ${overdueDays} ${overdueDays === 1 ? 'dia' : 'dias'}`;
+            if (window.EliteUtils && window.EliteUtils.showToast) window.EliteUtils.showToast(message, 'error');
+            window.dispatchEvent(new CustomEvent('deadlineOverdue', { detail: { deadline, overdueDays, message } }));
+            this.logActivity(deadline, `Prazo vencido (${overdueDays} dias)`);
+        } catch (error) { console.error('[ELITE] Erro ao notificar prazo vencido:', error); }
         return this;
     }
     
@@ -645,18 +533,12 @@ class CourtDeadlines {
      * Envia lembrete de prazo (dia anterior)
      */
     sendReminder(deadline) {
-        const message = `📢 LEMBRETE: ${deadline.description}\nProcesso: ${deadline.caseId}\nVence AMANHÃ (${this.formatDate(deadline.dueDateRaw)})`;
-        
-        if (window.EliteUtils && window.EliteUtils.showToast) {
-            window.EliteUtils.showToast(message, 'warning');
-        }
-        
-        window.dispatchEvent(new CustomEvent('deadlineReminder', {
-            detail: { deadline, message }
-        }));
-        
-        this.logActivity(deadline, 'Lembrete enviado (D-1)');
-        
+        try {
+            const message = `📢 LEMBRETE: ${deadline.description}\nProcesso: ${deadline.caseId}\nVence AMANHÃ (${this.formatDate(deadline.dueDateRaw)})`;
+            if (window.EliteUtils && window.EliteUtils.showToast) window.EliteUtils.showToast(message, 'warning');
+            window.dispatchEvent(new CustomEvent('deadlineReminder', { detail: { deadline, message } }));
+            this.logActivity(deadline, 'Lembrete enviado (D-1)');
+        } catch (error) { console.error('[ELITE] Erro ao enviar lembrete:', error); }
         return this;
     }
     
@@ -664,18 +546,12 @@ class CourtDeadlines {
      * Registra atividade no log RGPD
      */
     logActivity(deadline, action) {
-        const logEntry = {
-            timestamp: new Date().toLocaleString(),
-            user: 'Sistema',
-            action: `Prazo: ${action}`,
-            entity: `${deadline.caseId} - ${deadline.description}`,
-            hash: window.EliteUtils ? window.EliteUtils.generateHash(deadline.id + action) : null
-        };
-        
-        const logs = JSON.parse(localStorage.getItem('elite_activity_log') || '[]');
-        logs.unshift(logEntry);
-        localStorage.setItem('elite_activity_log', JSON.stringify(logs.slice(0, 500)));
-        
+        try {
+            const logEntry = { timestamp: new Date().toLocaleString(), user: 'Sistema', action: `Prazo: ${action}`, entity: `${deadline.caseId} - ${deadline.description}`, hash: window.EliteUtils ? window.EliteUtils.generateHash(deadline.id + action) : null };
+            const logs = JSON.parse(localStorage.getItem('elite_activity_log') || '[]');
+            logs.unshift(logEntry);
+            localStorage.setItem('elite_activity_log', JSON.stringify(logs.slice(0, 500)));
+        } catch (error) { console.error('[ELITE] Erro ao registar atividade:', error); }
         return this;
     }
     
@@ -683,101 +559,87 @@ class CourtDeadlines {
      * Marca prazo como concluído
      */
     markAsCompleted(id) {
-        const deadline = this.deadlines.find(d => d.id === id);
-        if (deadline) {
-            deadline.status = 'completed';
-            deadline.completedAt = new Date().toISOString();
-            this.saveDeadlines();
-            
-            if (window.EliteUtils) {
-                window.EliteUtils.showToast(`Prazo "${deadline.description}" concluído`, 'success');
+        try {
+            const deadline = this.deadlines.find(d => d.id === id);
+            if (deadline) {
+                deadline.status = 'completed';
+                deadline.completedAt = new Date().toISOString();
+                this.saveDeadlines();
+                if (window.EliteUtils) window.EliteUtils.showToast(`Prazo "${deadline.description}" concluído`, 'success');
+                this.logActivity(deadline, 'Prazo concluído');
             }
-            
-            this.logActivity(deadline, 'Prazo concluído');
-        }
+        } catch (error) { console.error('[ELITE] Erro ao marcar prazo como concluído:', error); }
         return this;
     }
     
     /**
-     * Renderiza o calendário de prazos para o dashboard
+     * Renderiza o calendário de prazos
      */
     renderCalendar(containerId) {
         const container = document.getElementById(containerId);
         if (!container) return;
         
-        const pendingDeadlines = this.getPendingDeadlines(30);
-        const overdueDeadlines = this.getOverdueDeadlines();
-        
-        container.innerHTML = `
-            <div class="court-deadlines-widget">
-                <div class="deadlines-summary">
-                    <div class="summary-card">
-                        <div class="summary-value">${pendingDeadlines.length}</div>
-                        <div class="summary-label">Prazos Pendentes</div>
-                    </div>
-                    <div class="summary-card urgent">
-                        <div class="summary-value">${overdueDeadlines.length}</div>
-                        <div class="summary-label">Prazos Vencidos</div>
-                    </div>
-                    <div class="summary-card">
-                        <div class="summary-value">${this.deadlines.filter(d => d.status === 'completed').length}</div>
-                        <div class="summary-label">Concluídos</div>
-                    </div>
+        try {
+            const pendingDeadlines = this.getPendingDeadlines(30);
+            const overdueDeadlines = this.getOverdueDeadlines();
+            
+            container.innerHTML = `
+                <div class="court-deadlines-widget">
+                    <div class="deadlines-summary"><div class="summary-card"><div class="summary-value">${pendingDeadlines.length}</div><div class="summary-label">Prazos Pendentes</div></div><div class="summary-card urgent"><div class="summary-value">${overdueDeadlines.length}</div><div class="summary-label">Prazos Vencidos</div></div><div class="summary-card"><div class="summary-value">${this.deadlines.filter(d => d.status === 'completed').length}</div><div class="summary-label">Concluídos</div></div></div>
+                    <div class="deadlines-list"><h4>Próximos Prazos</h4>${pendingDeadlines.slice(0, 5).map(d => `<div class="deadline-row priority-${d.priority}"><div class="deadline-date">${this.formatDate(d.dueDateRaw)}</div><div class="deadline-info"><strong>${d.description}</strong><small>${d.caseId}</small></div><button class="complete-btn" data-id="${d.id}" title="Marcar como concluído">✓</button></div>`).join('')}${pendingDeadlines.length === 0 ? '<div class="empty-state">Nenhum prazo pendente</div>' : ''}</div>
                 </div>
-                <div class="deadlines-list">
-                    <h4>Próximos Prazos</h4>
-                    ${pendingDeadlines.slice(0, 5).map(d => `
-                        <div class="deadline-row priority-${d.priority}">
-                            <div class="deadline-date">${this.formatDate(d.dueDateRaw)}</div>
-                            <div class="deadline-info">
-                                <strong>${d.description}</strong>
-                                <small>${d.caseId}</small>
-                            </div>
-                            <button class="complete-btn" data-id="${d.id}" title="Marcar como concluído">✓</button>
-                        </div>
-                    `).join('')}
-                    ${pendingDeadlines.length === 0 ? '<div class="empty-state">Nenhum prazo pendente</div>' : ''}
-                </div>
-            </div>
-        `;
-        
-        container.querySelectorAll('.complete-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const id = parseInt(btn.dataset.id);
-                this.markAsCompleted(id);
-                this.renderCalendar(containerId);
+                <style>
+                    .court-deadlines-widget{ background:var(--bg-command); border-radius:16px; padding:20px; border:1px solid var(--border-tactic); }
+                    .deadlines-summary{ display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-bottom:20px; }
+                    .summary-card{ background:var(--bg-terminal); border-radius:12px; padding:16px; text-align:center; }
+                    .summary-value{ font-size:1.5rem; font-weight:800; font-family:'JetBrains Mono'; color:var(--elite-primary); }
+                    .summary-label{ font-size:0.7rem; color:#94a3b8; }
+                    .deadlines-list h4{ font-size:0.8rem; margin-bottom:12px; color:var(--elite-primary); }
+                    .deadline-row{ display:flex; align-items:center; gap:12px; padding:12px; background:var(--bg-terminal); border-radius:8px; margin-bottom:8px; border-left:3px solid; }
+                    .deadline-row.priority-5{ border-left-color:#ff1744; background:rgba(255,23,68,0.05); }
+                    .deadline-row.priority-4{ border-left-color:#ff6b6b; }
+                    .deadline-row.priority-3{ border-left-color:#ffc107; }
+                    .deadline-row.priority-2{ border-left-color:#00e676; }
+                    .deadline-row.priority-1{ border-left-color:#00e5ff; }
+                    .deadline-date{ font-family:'JetBrains Mono'; font-size:0.7rem; min-width:80px; }
+                    .deadline-info{ flex:1; }
+                    .deadline-info strong{ display:block; font-size:0.8rem; }
+                    .deadline-info small{ font-size:0.6rem; color:#94a3b8; }
+                    .complete-btn{ background:rgba(0,230,118,0.1); border:1px solid #00e676; color:#00e676; width:28px; height:28px; border-radius:50%; cursor:pointer; transition:all 0.2s; }
+                    .complete-btn:hover{ background:#00e676; color:#000; transform:scale(1.1); }
+                    @media (max-width:768px){ .deadline-row{ flex-wrap:wrap; } .complete-btn{ margin-left:auto; } }
+                </style>
+            `;
+            
+            container.querySelectorAll('.complete-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const id = parseInt(btn.dataset.id);
+                    this.markAsCompleted(id);
+                    this.renderCalendar(containerId);
+                });
             });
-        });
+        } catch (error) {
+            console.error('[ELITE] Erro ao renderizar calendário:', error);
+            container.innerHTML = `<div class="alert-item error"><i class="fas fa-exclamation-triangle"></i><div><strong>Erro ao Carregar</strong><p>${error.message}</p></div></div>`;
+        }
     }
     
     /**
      * Exporta prazos para CSV
      */
     exportToCSV() {
-        const headers = ['ID', 'Processo', 'Descrição', 'Data Vencimento', 'Tipo', 'Prioridade', 'Status', 'Notas'];
-        const rows = this.deadlines.map(d => [
-            d.id,
-            d.caseId,
-            d.description,
-            this.formatDate(d.dueDateRaw),
-            d.type,
-            d.priority,
-            d.status,
-            d.notes || ''
-        ]);
-        
-        const csv = [headers, ...rows].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
-        const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8' });
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        link.download = `prazos_judiciais_${new Date().toISOString().slice(0, 10)}.csv`;
-        link.click();
-        URL.revokeObjectURL(link.href);
-        
-        if (window.EliteUtils) {
-            window.EliteUtils.showToast('Prazos exportados com sucesso', 'success');
-        }
-        
+        try {
+            const headers = ['ID', 'Processo', 'Descrição', 'Data Vencimento', 'Tipo', 'Prioridade', 'Status', 'Notas'];
+            const rows = this.deadlines.map(d => [d.id, d.caseId, d.description, this.formatDate(d.dueDateRaw), d.type, d.priority, d.status, d.notes || '']);
+            const csv = [headers, ...rows].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
+            const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `prazos_judiciais_${new Date().toISOString().slice(0, 10)}.csv`;
+            link.click();
+            URL.revokeObjectURL(link.href);
+            if (window.EliteUtils) window.EliteUtils.showToast('Prazos exportados com sucesso', 'success');
+        } catch (error) { console.error('[ELITE] Erro ao exportar prazos:', error); }
         return this;
     }
     
@@ -793,37 +655,29 @@ class CourtDeadlines {
      * Obtém estatísticas de prazos
      */
     getStatistics() {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        
-        const pending = this.deadlines.filter(d => d.status === 'pending');
-        const overdue = this.getOverdueDeadlines();
-        const urgent = this.getPendingDeadlines(3);
-        
-        const byPriority = {
-            1: pending.filter(d => d.priority === 1).length,
-            2: pending.filter(d => d.priority === 2).length,
-            3: pending.filter(d => d.priority === 3).length,
-            4: pending.filter(d => d.priority === 4).length,
-            5: pending.filter(d => d.priority === 5).length
-        };
-        
-        const byType = {
-            judicial: pending.filter(d => d.type === 'judicial').length,
-            civil: pending.filter(d => d.type === 'civil').length,
-            procedural: pending.filter(d => d.type === 'procedural').length
-        };
-        
-        return {
-            total: this.deadlines.length,
-            pending: pending.length,
-            completed: this.deadlines.filter(d => d.status === 'completed').length,
-            overdue: overdue.length,
-            urgent: urgent.length,
-            byPriority,
-            byType,
-            nextDeadline: pending.length > 0 ? this.formatDate(pending.sort((a, b) => new Date(a.dueDateRaw) - new Date(b.dueDateRaw))[0].dueDateRaw) : null
-        };
+        try {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const pending = this.deadlines.filter(d => d.status === 'pending');
+            const overdue = this.getOverdueDeadlines();
+            const urgent = this.getPendingDeadlines(3);
+            const byPriority = { 1: pending.filter(d => d.priority === 1).length, 2: pending.filter(d => d.priority === 2).length, 3: pending.filter(d => d.priority === 3).length, 4: pending.filter(d => d.priority === 4).length, 5: pending.filter(d => d.priority === 5).length };
+            const byType = { judicial: pending.filter(d => d.type === 'judicial').length, civil: pending.filter(d => d.type === 'civil').length, procedural: pending.filter(d => d.type === 'procedural').length };
+            return { total: this.deadlines.length, pending: pending.length, completed: this.deadlines.filter(d => d.status === 'completed').length, overdue: overdue.length, urgent: urgent.length, byPriority, byType, nextDeadline: pending.length > 0 ? this.formatDate(pending.sort((a, b) => new Date(a.dueDateRaw) - new Date(b.dueDateRaw))[0].dueDateRaw) : null };
+        } catch (error) { return { total: 0, pending: 0, completed: 0, overdue: 0, urgent: 0 }; }
+    }
+    
+    /**
+     * Obtém a data da Páscoa para um determinado ano
+     */
+    getEasterDate(year) { return this.calculateEasterDate(year); }
+    
+    /**
+     * Obtém todos os feriados móveis para um ano
+     */
+    getMovableHolidays(year) {
+        this.calculateMovableHolidays(year);
+        return { carnival: this.movableHolidays.carnival, goodFriday: this.movableHolidays.goodFriday, easterSunday: this.movableHolidays.easterSunday, corpusChristi: this.movableHolidays.corpusChristi };
     }
 }
 

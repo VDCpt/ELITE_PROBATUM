@@ -8,8 +8,7 @@
  * 2. Geração de Certificado de Correspondência Unívoca
  * 3. Checksum automático de PDF antes da submissão ao tribunal
  * 4. Captura e selagem de timestamp oficial do Ministério da Justiça
- * 5. Auditoria de submissões processuais
- * 6. Integração com o sistema CITIUS (simulação)
+ * 5. Integração com o sistema CITIUS (simulação com fetch)
  * ============================================================================
  */
 
@@ -20,9 +19,11 @@ class ShadowDossierManager {
         this.pendingSubmissions = new Map();
         this.verifiedReceipts = new Map();
         this.initialized = false;
+        this.citiusMockEndpoint = '/api/citius/mock';
         
         this.loadSyncHistory();
         this.loadVerifiedReceipts();
+        this.initMockCitiusEndpoint();
     }
     
     /**
@@ -32,6 +33,193 @@ class ShadowDossierManager {
         this.initialized = true;
         console.log('[ELITE] Shadow Dossier Manager inicializado - Simbiose Judiciária Ativa');
         return this;
+    }
+    
+    /**
+     * Inicializa endpoint mock do CITIUS
+     */
+    initMockCitiusEndpoint() {
+        if (typeof window !== 'undefined' && !window._citiusMockInitialized) {
+            window._citiusMockInitialized = true;
+            
+            // Interceptar fetch para simular API do CITIUS
+            const originalFetch = window.fetch;
+            window.fetch = async (url, options) => {
+                if (url === this.citiusMockEndpoint || (typeof url === 'string' && url.includes('/citius/'))) {
+                    console.log('[ShadowDossier] Interceptando chamada CITIUS:', url);
+                    return this.handleCitiusRequest(url, options);
+                }
+                return originalFetch(url, options);
+            };
+            
+            console.log('[ShadowDossier] Mock do CITIUS inicializado');
+        }
+    }
+    
+    /**
+     * Manipula requisições mock do CITIUS
+     */
+    async handleCitiusRequest(url, options) {
+        const body = options?.body ? JSON.parse(options.body) : null;
+        
+        if (url.includes('/citius/processo/') && options?.method === 'GET') {
+            const processId = url.split('/').pop();
+            return this.mockGetProcesso(processId);
+        }
+        
+        if (url.includes('/citius/submeter') && options?.method === 'POST') {
+            return this.mockSubmitProcesso(body);
+        }
+        
+        if (url.includes('/citius/recibo/') && options?.method === 'GET') {
+            const receiptId = url.split('/').pop();
+            return this.mockGetRecibo(receiptId);
+        }
+        
+        // Fallback para resposta padrão
+        return new Response(JSON.stringify({ error: 'Endpoint não encontrado' }), {
+            status: 404,
+            headers: { 'Content-Type': 'application/json' }
+        });
+    }
+    
+    /**
+     * Mock de obtenção de dados do processo no CITIUS
+     */
+    async mockGetProcesso(processId) {
+        const mockProcessos = {
+            '1234/23.8T8LSB': {
+                id: '1234/23.8T8LSB',
+                tribunal: 'Tribunal Judicial de Lisboa',
+                secao: '1ª Secção Cível',
+                juiz: 'Dr. António Costa',
+                status: 'Em julgamento',
+                data_entrada: '2023-08-15',
+                ultimo_movimento: '2024-10-20',
+                movimentos: [
+                    { data: '2023-08-15', descricao: 'Entrada da petição inicial', tipo: 'entrada' },
+                    { data: '2023-09-10', descricao: 'Citação da ré', tipo: 'citacao' },
+                    { data: '2023-10-05', descricao: 'Contestação apresentada', tipo: 'contestacao' },
+                    { data: '2024-01-20', descricao: 'Despacho saneador', tipo: 'despacho' },
+                    { data: '2024-06-15', descricao: 'Audiência de julgamento', tipo: 'audiencia' },
+                    { data: '2024-10-20', descricao: 'Aguardando sentença', tipo: 'aguardando' }
+                ],
+                partes: {
+                    autor: 'Construtora ABC, SA',
+                    réu: 'Bolt Operations OÜ'
+                }
+            },
+            '5678/24.2T8PRT': {
+                id: '5678/24.2T8PRT',
+                tribunal: 'Tribunal Judicial do Porto',
+                secao: 'Secção Laboral',
+                juiz: 'Dra. Sofia Mendes',
+                status: 'Em instrução',
+                data_entrada: '2024-02-10',
+                ultimo_movimento: '2024-11-01',
+                movimentos: [
+                    { data: '2024-02-10', descricao: 'Entrada da petição inicial', tipo: 'entrada' },
+                    { data: '2024-03-05', descricao: 'Notificação do réu', tipo: 'citacao' },
+                    { data: '2024-10-15', descricao: 'Produção de prova', tipo: 'prova' },
+                    { data: '2024-11-01', descricao: 'Designação de audiência', tipo: 'designacao' }
+                ],
+                partes: {
+                    autor: 'Maria Rodrigues',
+                    réu: 'GlovoApp23, S.L.'
+                }
+            }
+        };
+        
+        const processo = mockProcessos[processId] || {
+            id: processId,
+            tribunal: 'Tribunal Judicial de Lisboa',
+            secao: 'Secção Genérica',
+            juiz: 'A designar',
+            status: 'Em processamento',
+            data_entrada: new Date().toISOString().slice(0, 10),
+            ultimo_movimento: new Date().toISOString().slice(0, 10),
+            movimentos: [
+                { data: new Date().toISOString().slice(0, 10), descricao: 'Processo registado no CITIUS', tipo: 'entrada' }
+            ],
+            partes: {
+                autor: 'A designar',
+                réu: 'A designar'
+            }
+        };
+        
+        return new Response(JSON.stringify({
+            success: true,
+            data: processo,
+            timestamp: new Date().toISOString(),
+            source: 'CITIUS - Ministério da Justiça'
+        }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' }
+        });
+    }
+    
+    /**
+     * Mock de submissão de processo ao CITIUS
+     */
+    async mockSubmitProcesso(data) {
+        const receiptId = `CITIUS_${Date.now()}_${Math.random().toString(36).substr(2, 8).toUpperCase()}`;
+        const processNumber = data.processId || this.generateProcessNumber();
+        
+        const receipt = {
+            receiptId: receiptId,
+            processId: processNumber,
+            court: data.court || 'Tribunal Judicial de Lisboa',
+            section: data.section || '1ª Secção',
+            documentId: data.documentId,
+            documentHash: data.documentHash,
+            documentName: data.documentName,
+            submissionTimestamp: new Date().toISOString(),
+            submissionTimestampFormatted: new Date().toLocaleString('pt-PT'),
+            officialTimestamp: new Date().toISOString(),
+            officialTimestampFormatted: new Date().toLocaleString('pt-PT'),
+            status: 'SUBMITTED',
+            receiptHash: CryptoJS.SHA256(JSON.stringify({
+                receiptId: receiptId,
+                processId: processNumber,
+                documentHash: data.documentHash,
+                timestamp: new Date().toISOString()
+            })).toString(),
+            validationCode: this.generateValidationCode(),
+            qrCodeUrl: `https://citius.tribunais.pt/recibo/${receiptId}`,
+            pdfUrl: `https://citius.tribunais.pt/recibo/${receiptId}/pdf`
+        };
+        
+        return new Response(JSON.stringify({
+            success: true,
+            data: receipt,
+            message: 'Documento submetido com sucesso ao CITIUS',
+            timestamp: new Date().toISOString()
+        }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' }
+        });
+    }
+    
+    /**
+     * Mock de obtenção de recibo do CITIUS
+     */
+    async mockGetRecibo(receiptId) {
+        return new Response(JSON.stringify({
+            success: true,
+            data: {
+                receiptId: receiptId,
+                processId: '1234/23.8T8LSB',
+                court: 'Tribunal Judicial de Lisboa',
+                submissionTimestamp: '2024-10-15T10:30:00.000Z',
+                documentHash: CryptoJS.SHA256('documento_exemplo').toString(),
+                status: 'VALIDATED',
+                validationCode: this.generateValidationCode()
+            },
+            timestamp: new Date().toISOString()
+        }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' }
+        });
     }
     
     /**
@@ -89,9 +277,6 @@ class ShadowDossierManager {
     
     /**
      * Pré-validação de PDF antes da submissão ao CITIUS
-     * @param {File|ArrayBuffer} pdfContent - Conteúdo do PDF
-     * @param {Object} metadata - Metadados do documento
-     * @returns {Object} Resultado da pré-validação com hash e checksum
      */
     async preValidateSubmission(pdfContent, metadata) {
         let contentBuffer;
@@ -104,17 +289,11 @@ class ShadowDossierManager {
             contentBuffer = pdfContent;
         }
         
-        // Calcular hash SHA-256 do conteúdo
         const wordArray = CryptoJS.lib.WordArray.create(contentBuffer);
         const fileHash = CryptoJS.SHA256(wordArray).toString();
-        
-        // Calcular checksum adicional para validação
         const checksum = CryptoJS.MD5(wordArray).toString();
-        
-        // Extrair metadados do PDF
         const pdfMetadata = await this.extractPDFMetadata(contentBuffer);
         
-        // Gerar ID único para o documento
         const documentId = `DOC_${Date.now()}_${Math.random().toString(36).substr(2, 8).toUpperCase()}`;
         
         const preValidation = {
@@ -135,10 +314,7 @@ class ShadowDossierManager {
             validationUrl: `/validate/${documentId}`
         };
         
-        // Armazenar em pendente
         this.pendingSubmissions.set(preValidation.documentId, preValidation);
-        
-        // Registrar no audit log
         this.logShadowEvent('PRE_VALIDATION', preValidation.documentId, {
             fileName: fileName,
             fileHash: fileHash,
@@ -155,9 +331,6 @@ class ShadowDossierManager {
     
     /**
      * Simula submissão ao CITIUS e captura recibo oficial
-     * @param {string} documentId - ID do documento pré-validado
-     * @param {Object} submissionData - Dados de submissão (processo, tribunal, etc.)
-     * @returns {Object} Recibo oficial com timestamp do MJ
      */
     async submitToCitius(documentId, submissionData) {
         const pendingDoc = this.pendingSubmissions.get(documentId);
@@ -165,13 +338,53 @@ class ShadowDossierManager {
             throw new Error(`Documento ${documentId} não encontrado nas pendências`);
         }
         
-        // Simular submissão ao CITIUS (em produção, integrar com API real)
-        const submissionTimestamp = new Date();
+        // Tentar submeter via API mock
+        try {
+            const response = await fetch('/citius/submeter', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    documentId: documentId,
+                    documentHash: pendingDoc.fileHash,
+                    documentName: pendingDoc.fileName,
+                    processId: submissionData.processId,
+                    court: submissionData.court,
+                    section: submissionData.section
+                })
+            });
+            
+            if (response.ok) {
+                const result = await response.json();
+                const citiusReceipt = result.data;
+                
+                // Atualizar pendência
+                pendingDoc.status = 'SUBMITTED';
+                pendingDoc.receipt = citiusReceipt;
+                pendingDoc.submissionTimestamp = citiusReceipt.submissionTimestamp;
+                pendingDoc.processId = citiusReceipt.processId;
+                
+                this.saveSyncHistory();
+                this.logShadowEvent('CITIUS_SUBMISSION', documentId, {
+                    receiptId: citiusReceipt.receiptId,
+                    processId: citiusReceipt.processId,
+                    court: citiusReceipt.court,
+                    timestamp: citiusReceipt.submissionTimestamp
+                });
+                
+                if (window.EliteUtils) {
+                    window.EliteUtils.showToast(`Documento submetido ao CITIUS: ${pendingDoc.fileName} - Processo: ${citiusReceipt.processId}`, 'success');
+                }
+                
+                return citiusReceipt;
+            }
+        } catch (error) {
+            console.warn('[ShadowDossier] Erro na submissão via API, usando fallback:', error);
+        }
         
-        // Gerar número de processo se não fornecido
+        // Fallback para submissão local
+        const submissionTimestamp = new Date();
         const processNumber = submissionData.processId || this.generateProcessNumber();
         
-        // Gerar recibo oficial simulado com timestamp
         const citiusReceipt = {
             receiptId: `CITIUS_${Date.now()}_${Math.random().toString(36).substr(2, 8).toUpperCase()}`,
             processId: processNumber,
@@ -191,7 +404,6 @@ class ShadowDossierManager {
             pdfUrl: null
         };
         
-        // Calcular hash do recibo para integridade
         const receiptContent = JSON.stringify({
             receiptId: citiusReceipt.receiptId,
             processId: citiusReceipt.processId,
@@ -200,7 +412,6 @@ class ShadowDossierManager {
         });
         citiusReceipt.receiptHash = CryptoJS.SHA256(receiptContent).toString();
         
-        // Registrar no histórico
         this.syncHistory.unshift({
             type: 'CITIUS_SUBMISSION',
             documentId: documentId,
@@ -211,15 +422,12 @@ class ShadowDossierManager {
             hash: citiusReceipt.receiptHash
         });
         
-        // Atualizar pendência
         pendingDoc.status = 'SUBMITTED';
         pendingDoc.receipt = citiusReceipt;
         pendingDoc.submissionTimestamp = submissionTimestamp.toISOString();
         pendingDoc.processId = processNumber;
         
         this.saveSyncHistory();
-        
-        // Registrar no audit log
         this.logShadowEvent('CITIUS_SUBMISSION', documentId, {
             receiptId: citiusReceipt.receiptId,
             processId: citiusReceipt.processId,
@@ -235,27 +443,16 @@ class ShadowDossierManager {
     }
     
     /**
-     * Vincula um recibo do CITIUS a uma evidência existente no Forensic Vault
-     * @param {string} evidenceId - ID da evidência no Forensic Vault
-     * @param {Object} citiusReceipt - Dados do recibo do tribunal
-     * @param {string} caseId - ID do processo
-     * @returns {Object} Shadow Binding com certificado de correspondência
+     * Vincula um recibo do CITIUS a uma evidência existente
      */
     async bindCitiusReceipt(evidenceId, citiusReceipt, caseId) {
         if (!this.vault) {
-            throw new Error("Forensic Vault não disponível");
+            console.warn('[ShadowDossier] Forensic Vault não disponível, criando binding básico');
         }
         
-        const evidence = this.vault.evidenceChain ? this.vault.evidenceChain.get(evidenceId) : null;
-        if (!evidence) {
-            // Se não encontrar no vault, criar binding básico
-            console.warn(`[ShadowDossier] Evidência ${evidenceId} não encontrada no Forensic Vault, criando binding básico`);
-        }
-        
-        // Validar correspondência entre hash da evidência e hash do documento submetido
+        const evidence = this.vault?.evidenceChain ? this.vault.evidenceChain.get(evidenceId) : null;
         const hashMatch = evidence ? (evidence.hash === citiusReceipt.documentHash) : true;
         
-        // Gerar Certificado de Correspondência Unívoca
         const certificateId = `CERT_${Date.now()}_${Math.random().toString(36).substr(2, 8).toUpperCase()}`;
         
         const shadowBinding = {
@@ -282,7 +479,6 @@ class ShadowDossierManager {
             verificationUrl: `/verify/${certificateId}`
         };
         
-        // Calcular hash do binding
         const bindingContent = JSON.stringify({
             bindingId: shadowBinding.bindingId,
             evidenceId: shadowBinding.evidenceId,
@@ -293,14 +489,11 @@ class ShadowDossierManager {
         });
         shadowBinding.certificateHash = CryptoJS.SHA256(bindingContent).toString();
         
-        // Assinar com master hash
         const masterKey = window.ELITE_SECURE_HASH || 'ELITE_PROBATUM_MASTER_KEY';
         shadowBinding.signature = CryptoJS.HmacSHA256(shadowBinding.certificateHash, masterKey).toString();
         
-        // Armazenar binding
         this.verifiedReceipts.set(certificateId, shadowBinding);
         
-        // Registrar no Forensic Vault se disponível
         if (this.vault && typeof this.vault.logAccess === 'function') {
             this.vault.logAccess(evidenceId, 'CITIUS_BIND', 'SYSTEM_SYNC', {
                 bindingId: certificateId,
@@ -311,7 +504,6 @@ class ShadowDossierManager {
             });
         }
         
-        // Registrar no histórico
         this.syncHistory.unshift({
             type: 'CITIUS_BIND',
             bindingId: certificateId,
@@ -326,7 +518,6 @@ class ShadowDossierManager {
         this.saveSyncHistory();
         this.saveVerifiedReceipts();
         
-        // Emitir evento para UI
         window.dispatchEvent(new CustomEvent('shadowDossierBound', {
             detail: {
                 bindingId: certificateId,
@@ -338,26 +529,22 @@ class ShadowDossierManager {
         }));
         
         if (!hashMatch && window.EliteUtils) {
-            window.EliteUtils.showToast(`⚠️ ALERTA: Inconsistência de hash entre evidência e recibo CITIUS! Verifique a integridade do documento.`, 'error');
+            window.EliteUtils.showToast(`⚠️ ALERTA: Inconsistência de hash entre evidência e recibo CITIUS!`, 'error');
         } else if (window.EliteUtils) {
-            window.EliteUtils.showToast(`✅ Recibo ${citiusReceipt.receiptId} vinculado à evidência ${evidenceId} com sucesso. Certificado gerado.`, 'success');
+            window.EliteUtils.showToast(`✅ Recibo ${citiusReceipt.receiptId} vinculado à evidência ${evidenceId} com sucesso.`, 'success');
         }
-        
-        EliteUtils.log(`[SHADOW DOSSIER] Recibo ${citiusReceipt.receiptId} vinculado à evidência ${evidenceId} - Hash Match: ${hashMatch}`);
         
         return shadowBinding;
     }
     
     /**
-     * Gera Certificado de Correspondência Unívoca para apresentação em tribunal
-     * @param {string} bindingId - ID do binding
-     * @returns {Object} Certificado completo para juntar aos autos
+     * Gera Certificado de Correspondência Unívoca
      */
     generateUnivocalCertificate(bindingId) {
         const binding = this.verifiedReceipts.get(bindingId);
         if (!binding) return null;
         
-        const certificate = {
+        return {
             certificateId: `CERT_${bindingId}`,
             title: 'CERTIFICADO DE CORRESPONDÊNCIA UNÍVOCA',
             subtitle: 'Documento de Integridade e Autenticidade Forense',
@@ -391,241 +578,60 @@ class ShadowDossierManager {
                 version: '2.0.5'
             }
         };
-        
-        return certificate;
     }
     
     /**
-     * Exporta Certificado de Correspondência para PDF (para juntar aos autos)
+     * Exporta Certificado de Correspondência para PDF
      */
     async exportUnivocalCertificate(bindingId) {
         const certificate = this.generateUnivocalCertificate(bindingId);
         if (!certificate) {
-            if (window.EliteUtils) {
-                window.EliteUtils.showToast('Certificado não encontrado', 'error');
-            }
+            if (window.EliteUtils) window.EliteUtils.showToast('Certificado não encontrado', 'error');
             return null;
         }
         
         const statusColor = certificate.binding.hashMatch ? '#00e676' : '#ff1744';
         const statusText = certificate.binding.hashMatch ? '✓ VERIFICADO - CORRESPONDÊNCIA CONFIRMADA' : '✗ INCONSISTENTE - ALERTA DE INTEGRIDADE';
         
-        const certHtml = `
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <meta charset="UTF-8">
-                <title>Certificado de Correspondência Unívoca - ${certificate.certificateId}</title>
-                <style>
-                    body {
-                        font-family: 'JetBrains Mono', monospace;
-                        background: white;
-                        color: #0a0c10;
-                        padding: 40px;
-                        margin: 0;
-                        line-height: 1.5;
-                    }
-                    .header {
-                        text-align: center;
-                        border-bottom: 3px solid #00e5ff;
-                        padding-bottom: 20px;
-                        margin-bottom: 30px;
-                    }
-                    .logo { font-size: 28px; font-weight: bold; color: #00e5ff; }
-                    .subtitle { font-size: 12px; color: #64748b; margin-top: 4px; }
-                    .title { font-size: 20px; font-weight: bold; margin: 20px 0; text-align: center; }
-                    .certificate-box {
-                        border: 2px solid #00e5ff;
-                        padding: 30px;
-                        margin: 20px 0;
-                        border-radius: 16px;
-                        background: #f8fafc;
-                        position: relative;
-                    }
-                    .certificate-box::before {
-                        content: "⚖️";
-                        position: absolute;
-                        top: -15px;
-                        left: 20px;
-                        background: white;
-                        padding: 0 10px;
-                        font-size: 20px;
-                    }
-                    .status-badge {
-                        display: inline-block;
-                        background: ${statusColor}20;
-                        color: ${statusColor};
-                        padding: 8px 20px;
-                        border-radius: 30px;
-                        font-weight: bold;
-                        margin: 16px 0;
-                        font-size: 14px;
-                        border: 1px solid ${statusColor};
-                    }
-                    .hash-row {
-                        font-family: monospace;
-                        font-size: 10px;
-                        word-break: break-all;
-                        background: #f1f5f9;
-                        padding: 12px;
-                        margin: 12px 0;
-                        border-radius: 8px;
-                        border-left: 3px solid #00e5ff;
-                    }
-                    .info-grid {
-                        display: grid;
-                        grid-template-columns: repeat(2, 1fr);
-                        gap: 16px;
-                        margin: 20px 0;
-                    }
-                    .info-card {
-                        background: white;
-                        padding: 16px;
-                        border-radius: 12px;
-                        border: 1px solid #e2e8f0;
-                    }
-                    .info-label {
-                        font-size: 10px;
-                        text-transform: uppercase;
-                        color: #64748b;
-                        letter-spacing: 1px;
-                        margin-bottom: 8px;
-                    }
-                    .info-value {
-                        font-size: 12px;
-                        font-weight: 600;
-                        word-break: break-word;
-                    }
-                    .footer {
-                        margin-top: 50px;
-                        padding-top: 20px;
-                        border-top: 1px solid #e2e8f0;
-                        font-size: 9px;
-                        text-align: center;
-                        color: #94a3b8;
-                    }
-                    .validation-code {
-                        background: #f1f5f9;
-                        padding: 8px 16px;
-                        border-radius: 8px;
-                        font-family: monospace;
-                        font-size: 14px;
-                        text-align: center;
-                        letter-spacing: 2px;
-                    }
-                    @media print {
-                        body { padding: 20px; }
-                        .certificate-box { break-inside: avoid; }
-                    }
-                </style>
-            </head>
-            <body>
-                <div class="header">
-                    <div class="logo">ELITE PROBATUM</div>
-                    <div class="subtitle">UNIDADE DE COMANDO FORENSE DIGITAL</div>
-                </div>
-                
-                <div class="title">CERTIFICADO DE CORRESPONDÊNCIA UNÍVOCA</div>
-                <div class="title" style="font-size: 14px; margin-top: -10px;">Processo Judicial: ${certificate.binding.processId}</div>
-                
-                <div style="text-align: center;">
-                    <div class="status-badge">${statusText}</div>
-                </div>
-                
-                <div class="certificate-box">
-                    <h3 style="margin-top: 0;">1. IDENTIFICAÇÃO DA EVIDÊNCIA DIGITAL</h3>
-                    <div class="info-grid">
-                        <div class="info-card">
-                            <div class="info-label">ID da Evidência</div>
-                            <div class="info-value">${certificate.binding.evidenceId}</div>
-                        </div>
-                        <div class="info-card">
-                            <div class="info-label">Nome do Ficheiro</div>
-                            <div class="info-value">${certificate.binding.evidenceName}</div>
-                        </div>
-                    </div>
-                    <div class="hash-row">
-                        <strong>Hash SHA-256:</strong><br>
-                        ${certificate.binding.evidenceHash}
-                    </div>
-                    
-                    <h3>2. IDENTIFICAÇÃO DO RECIBO CITIUS</h3>
-                    <div class="info-grid">
-                        <div class="info-card">
-                            <div class="info-label">ID do Recibo</div>
-                            <div class="info-value">${certificate.binding.receiptId}</div>
-                        </div>
-                        <div class="info-card">
-                            <div class="info-label">Número de Processo</div>
-                            <div class="info-value">${certificate.binding.processId}</div>
-                        </div>
-                        <div class="info-card">
-                            <div class="info-label">Tribunal</div>
-                            <div class="info-value">${certificate.binding.court}</div>
-                        </div>
-                        <div class="info-card">
-                            <div class="info-label">Data de Submissão</div>
-                            <div class="info-value">${certificate.binding.submissionTimestampFormatted}</div>
-                        </div>
-                    </div>
-                    <div class="hash-row">
-                        <strong>Hash do Recibo:</strong><br>
-                        ${certificate.binding.receiptHash}
-                    </div>
-                    
-                    <h3>3. PROVA DE CORRESPONDÊNCIA</h3>
-                    <div class="info-grid">
-                        <div class="info-card">
-                            <div class="info-label">Correspondência de Hash</div>
-                            <div class="info-value" style="color: ${certificate.binding.hashMatch ? '#00e676' : '#ff1744'}; font-weight: bold;">
-                                ${certificate.binding.hashMatch ? '✓ CONFIRMADA' : '✗ INCONSISTENTE'}
-                            </div>
-                        </div>
-                        <div class="info-card">
-                            <div class="info-label">Timestamp Oficial (MJ)</div>
-                            <div class="info-value">${certificate.binding.officialTimestamp}</div>
-                        </div>
-                        <div class="info-card">
-                            <div class="info-label">Âncora Blockchain</div>
-                            <div class="info-value">✓ Registado em ledger imutável</div>
-                        </div>
-                        <div class="info-card">
-                            <div class="info-label">Data do Vínculo</div>
-                            <div class="info-value">${certificate.binding.bindingTimestampFormatted}</div>
-                        </div>
-                    </div>
-                    
-                    <h3>4. VALIDAÇÃO LEGAL</h3>
-                    <ul style="font-size: 11px; color: #475569;">
-                        <li>${certificate.legalValidity.article}</li>
-                        <li>${certificate.legalValidity.digitalSignature}</li>
-                        <li>${certificate.legalValidity.timestamp}</li>
-                        <li>${certificate.legalValidity.chainOfCustody}</li>
-                    </ul>
-                    
-                    <h3>5. CÓDIGO DE VALIDAÇÃO</h3>
-                    <div class="validation-code">
-                        ${certificate.integrityProof.validationCode}
-                    </div>
-                    <div class="hash-row" style="margin-top: 16px;">
-                        <strong>Hash do Certificado:</strong><br>
-                        ${certificate.integrityProof.certificateHash}
-                    </div>
-                    <div class="hash-row">
-                        <strong>Assinatura Digital:</strong><br>
-                        ${certificate.integrityProof.signature}
-                    </div>
-                </div>
-                
-                <div class="footer">
-                    <p>Documento gerado por ELITE PROBATUM v2.0.5 • Shadow Dossier Manager</p>
-                    <p>Este certificado atesta a correspondência unívoca entre a evidência digital e o recibo oficial do CITIUS.</p>
-                    <p>Verificação online: ${certificate.integrityProof.verificationUrl}</p>
-                    <p>Master Hash: ${certificate.officialSeal.masterHash.substring(0, 32)}...</p>
-                </div>
-            </body>
-            </html>
-        `;
+        const certHtml = `<!DOCTYPE html>
+        <html>
+        <head><meta charset="UTF-8"><title>Certificado de Correspondência Unívoca - ${certificate.certificateId}</title>
+        <style>
+            body{font-family:'JetBrains Mono',monospace;background:white;color:#0a0c10;padding:40px;margin:0;line-height:1.5;}
+            .header{text-align:center;border-bottom:3px solid #00e5ff;padding-bottom:20px;margin-bottom:30px;}
+            .logo{font-size:28px;font-weight:bold;color:#00e5ff;}
+            .title{font-size:20px;font-weight:bold;margin:20px 0;text-align:center;}
+            .certificate-box{border:2px solid #00e5ff;padding:30px;margin:20px 0;border-radius:16px;background:#f8fafc;position:relative;}
+            .status-badge{display:inline-block;background:${statusColor}20;color:${statusColor};padding:8px 20px;border-radius:30px;font-weight:bold;margin:16px 0;border:1px solid ${statusColor};}
+            .hash-row{font-family:monospace;font-size:10px;word-break:break-all;background:#f1f5f9;padding:12px;margin:12px 0;border-radius:8px;border-left:3px solid #00e5ff;}
+            .info-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin:20px 0;}
+            .info-card{background:white;padding:16px;border-radius:12px;border:1px solid #e2e8f0;}
+            .info-label{font-size:10px;text-transform:uppercase;color:#64748b;letter-spacing:1px;margin-bottom:8px;}
+            .footer{margin-top:50px;padding-top:20px;border-top:1px solid #e2e8f0;font-size:9px;text-align:center;color:#94a3b8;}
+            .validation-code{background:#f1f5f9;padding:8px 16px;border-radius:8px;font-family:monospace;font-size:14px;text-align:center;letter-spacing:2px;}
+        </style>
+        </head>
+        <body>
+            <div class="header"><div class="logo">ELITE PROBATUM</div><div>UNIDADE DE COMANDO FORENSE DIGITAL</div></div>
+            <div class="title">CERTIFICADO DE CORRESPONDÊNCIA UNÍVOCA</div>
+            <div class="title" style="font-size:14px;">Processo Judicial: ${certificate.binding.processId}</div>
+            <div style="text-align:center;"><div class="status-badge">${statusText}</div></div>
+            <div class="certificate-box">
+                <h3>1. IDENTIFICAÇÃO DA EVIDÊNCIA DIGITAL</h3>
+                <div class="info-grid"><div class="info-card"><div class="info-label">ID da Evidência</div><div class="info-value">${certificate.binding.evidenceId}</div></div><div class="info-card"><div class="info-label">Nome do Ficheiro</div><div class="info-value">${certificate.binding.evidenceName}</div></div></div>
+                <div class="hash-row"><strong>Hash SHA-256:</strong><br>${certificate.binding.evidenceHash}</div>
+                <h3>2. IDENTIFICAÇÃO DO RECIBO CITIUS</h3>
+                <div class="info-grid"><div class="info-card"><div class="info-label">ID do Recibo</div><div class="info-value">${certificate.binding.receiptId}</div></div><div class="info-card"><div class="info-label">Número de Processo</div><div class="info-value">${certificate.binding.processId}</div></div><div class="info-card"><div class="info-label">Tribunal</div><div class="info-value">${certificate.binding.court}</div></div><div class="info-card"><div class="info-label">Data de Submissão</div><div class="info-value">${certificate.binding.submissionTimestampFormatted}</div></div></div>
+                <div class="hash-row"><strong>Hash do Recibo:</strong><br>${certificate.binding.receiptHash}</div>
+                <h3>3. PROVA DE CORRESPONDÊNCIA</h3>
+                <div class="info-grid"><div class="info-card"><div class="info-label">Correspondência de Hash</div><div class="info-value" style="color:${certificate.binding.hashMatch ? '#00e676' : '#ff1744'}">${certificate.binding.hashMatch ? '✓ CONFIRMADA' : '✗ INCONSISTENTE'}</div></div><div class="info-card"><div class="info-label">Timestamp Oficial (MJ)</div><div class="info-value">${certificate.binding.officialTimestamp}</div></div></div>
+                <h3>4. CÓDIGO DE VALIDAÇÃO</h3>
+                <div class="validation-code">${certificate.integrityProof.validationCode}</div>
+                <div class="hash-row"><strong>Hash do Certificado:</strong><br>${certificate.integrityProof.certificateHash}</div>
+            </div>
+            <div class="footer"><p>Documento gerado por ELITE PROBATUM v2.0.5 • Shadow Dossier Manager</p><p>Verificação online: ${certificate.integrityProof.verificationUrl}</p></div>
+        </body>
+        </html>`;
         
         const blob = new Blob([certHtml], { type: 'text/html' });
         const link = document.createElement('a');
@@ -648,7 +654,7 @@ class ShadowDossierManager {
     }
     
     /**
-     * Extrai metadados de PDF para validação
+     * Extrai metadados de PDF
      */
     async extractPDFMetadata(buffer) {
         const metadata = {
@@ -664,28 +670,14 @@ class ShadowDossierManager {
         
         try {
             const text = new TextDecoder('utf-8').decode(buffer.slice(0, 50000));
-            
             const pageMatch = text.match(/\/Count\s+(\d+)/i);
             if (pageMatch) metadata.pages = parseInt(pageMatch[1]);
-            
             const creatorMatch = text.match(/\/Creator\s*\(([^)]+)\)/i);
             if (creatorMatch) metadata.creator = creatorMatch[1];
-            
             const producerMatch = text.match(/\/Producer\s*\(([^)]+)\)/i);
             if (producerMatch) metadata.producer = producerMatch[1];
-            
-            const creationDateMatch = text.match(/\/CreationDate\s*\(([^)]+)\)/i);
-            if (creationDateMatch) metadata.creationDate = creationDateMatch[1];
-            
-            const modDateMatch = text.match(/\/ModDate\s*\(([^)]+)\)/i);
-            if (modDateMatch) metadata.modificationDate = modDateMatch[1];
-            
-            if (text.includes('/Encrypt')) metadata.encrypted = true;
-            if (text.includes('/Field')) metadata.hasFormFields = true;
-            if (text.includes('/Sig')) metadata.hasDigitalSignature = true;
-            
         } catch (e) {
-            console.warn('[ShadowDossier] Erro ao extrair metadados do PDF:', e);
+            console.warn('[ShadowDossier] Erro ao extrair metadados:', e);
         }
         
         return metadata;
@@ -735,7 +727,7 @@ class ShadowDossierManager {
     }
     
     /**
-     * Formata bytes para exibição
+     * Formata bytes
      */
     formatBytes(bytes) {
         if (bytes === 0) return '0 Bytes';
@@ -796,9 +788,7 @@ class ShadowDossierManager {
      */
     verifyBinding(bindingId) {
         const binding = this.verifiedReceipts.get(bindingId);
-        if (!binding) {
-            return { valid: false, error: 'Binding não encontrado' };
-        }
+        if (!binding) return { valid: false, error: 'Binding não encontrado' };
         
         const bindingContent = JSON.stringify({
             bindingId: binding.bindingId,
@@ -837,7 +827,6 @@ class ShadowDossierManager {
         const validBindings = Array.from(this.verifiedReceipts.values()).filter(b => b.hashMatch).length;
         const submissions = this.syncHistory.filter(h => h.type === 'CITIUS_SUBMISSION').length;
         const pendingDocs = this.pendingSubmissions.size;
-        
         const lastSync = this.syncHistory[0]?.timestamp || null;
         
         return {
@@ -873,28 +862,17 @@ class ShadowDossierManager {
                 </div>
                 
                 <div class="stats-grid">
-                    <div class="stat-card">
-                        <div class="stat-value">${stats.totalBindings}</div>
-                        <div class="stat-label">Vínculos Criados</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value">${stats.validBindings}</div>
-                        <div class="stat-label">Vínculos Validados</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value">${stats.totalSubmissions}</div>
-                        <div class="stat-label">Submissões CITIUS</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value">${stats.pendingDocuments}</div>
-                        <div class="stat-label">Documentos Pendentes</div>
-                    </div>
+                    <div class="stat-card"><div class="stat-value">${stats.totalBindings}</div><div class="stat-label">Vínculos Criados</div></div>
+                    <div class="stat-card"><div class="stat-value">${stats.validBindings}</div><div class="stat-label">Vínculos Validados</div></div>
+                    <div class="stat-card"><div class="stat-value">${stats.totalSubmissions}</div><div class="stat-label">Submissões CITIUS</div></div>
+                    <div class="stat-card"><div class="stat-value">${stats.pendingDocuments}</div><div class="stat-label">Documentos Pendentes</div></div>
                 </div>
                 
                 <div class="action-buttons">
                     <button id="newSubmissionBtn" class="elite-btn primary"><i class="fas fa-upload"></i> NOVA SUBMISSÃO</button>
                     <button id="newBindingBtn" class="elite-btn secondary"><i class="fas fa-link"></i> NOVO VÍNCULO</button>
                     <button id="verifyAllBtn" class="elite-btn info"><i class="fas fa-shield-alt"></i> VERIFICAR INTEGRIDADE</button>
+                    <button id="consultCitiusBtn" class="elite-btn success"><i class="fas fa-gavel"></i> CONSULTAR CITIUS</button>
                 </div>
                 
                 <div class="receipts-section">
@@ -905,117 +883,60 @@ class ShadowDossierManager {
                             <div class="receipt-card ${r.hashMatch ? 'valid' : 'invalid'}">
                                 <div class="receipt-header">
                                     <i class="fas ${r.hashMatch ? 'fa-check-circle' : 'fa-exclamation-triangle'}"></i>
-                                    <div>
-                                        <strong>${r.evidenceName}</strong>
-                                        <div class="receipt-id">${r.receiptId}</div>
-                                    </div>
-                                    <div class="receipt-status ${r.hashMatch ? 'status-valid' : 'status-invalid'}">
-                                        ${r.hashMatch ? 'VERIFICADO' : 'INCONSISTENTE'}
-                                    </div>
+                                    <div><strong>${r.evidenceName}</strong><div class="receipt-id">${r.receiptId}</div></div>
+                                    <div class="receipt-status ${r.hashMatch ? 'status-valid' : 'status-invalid'}">${r.hashMatch ? 'VERIFICADO' : 'INCONSISTENTE'}</div>
                                 </div>
                                 <div class="receipt-details">
-                                    <div class="detail-row">
-                                        <span>Processo:</span>
-                                        <strong>${r.processId}</strong>
-                                    </div>
-                                    <div class="detail-row">
-                                        <span>Tribunal:</span>
-                                        <strong>${r.court}</strong>
-                                    </div>
-                                    <div class="detail-row">
-                                        <span>Data de Submissão:</span>
-                                        <strong>${r.submissionTimestampFormatted}</strong>
-                                    </div>
-                                    <div class="detail-row">
-                                        <span>Hash da Evidência:</span>
-                                        <code>${r.evidenceHash.substring(0, 32)}...</code>
-                                    </div>
-                                    <div class="detail-row">
-                                        <span>Hash do Recibo:</span>
-                                        <code>${r.receiptHash.substring(0, 32)}...</code>
-                                    </div>
+                                    <div class="detail-row"><span>Processo:</span><strong>${r.processId}</strong></div>
+                                    <div class="detail-row"><span>Tribunal:</span><strong>${r.court}</strong></div>
+                                    <div class="detail-row"><span>Data de Submissão:</span><strong>${r.submissionTimestampFormatted}</strong></div>
+                                    <div class="detail-row"><span>Hash da Evidência:</span><code>${r.evidenceHash.substring(0, 32)}...</code></div>
                                 </div>
                                 <div class="receipt-actions">
-                                    <button class="action-btn verify-binding" data-binding="${r.bindingId}">
-                                        <i class="fas fa-shield-alt"></i> VERIFICAR
-                                    </button>
-                                    <button class="action-btn export-cert" data-binding="${r.bindingId}">
-                                        <i class="fas fa-file-pdf"></i> CERTIFICADO
-                                    </button>
+                                    <button class="action-btn verify-binding" data-binding="${r.bindingId}"><i class="fas fa-shield-alt"></i> VERIFICAR</button>
+                                    <button class="action-btn export-cert" data-binding="${r.bindingId}"><i class="fas fa-file-pdf"></i> CERTIFICADO</button>
                                 </div>
                             </div>
                         `).join('')}
                 </div>
             </div>
+            <style>
+                .shadow-dossier-dashboard{ padding:0; }
+                .integrity-badge{ background:var(--bg-terminal); padding:8px 16px; border-radius:20px; font-size:0.7rem; font-weight:bold; }
+                .integrity-badge.excellent{ border-left:3px solid #00e676; color:#00e676; }
+                .stats-grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin:20px 0; }
+                .stat-card{ background:var(--bg-command); border-radius:16px; padding:20px; text-align:center; }
+                .stat-value{ font-size:1.8rem; font-weight:800; font-family:'JetBrains Mono'; color:var(--elite-primary); }
+                .stat-label{ font-size:0.7rem; color:#94a3b8; margin-top:8px; }
+                .action-buttons{ display:flex; gap:12px; margin:20px 0; flex-wrap:wrap; }
+                .receipt-card{ background:var(--bg-terminal); border-radius:16px; padding:20px; margin-bottom:16px; border:1px solid var(--border-tactic); }
+                .receipt-card.valid{ border-left:4px solid #00e676; }
+                .receipt-card.invalid{ border-left:4px solid #ff1744; }
+                .receipt-header{ display:flex; align-items:center; gap:12px; margin-bottom:16px; flex-wrap:wrap; }
+                .receipt-id{ font-size:0.65rem; color:#64748b; font-family:monospace; }
+                .receipt-status{ margin-left:auto; padding:4px 12px; border-radius:20px; font-size:0.7rem; font-weight:bold; }
+                .status-valid{ background:rgba(0,230,118,0.1); color:#00e676; }
+                .status-invalid{ background:rgba(255,23,68,0.1); color:#ff1744; }
+                .detail-row{ display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid rgba(255,255,255,0.05); font-size:0.75rem; flex-wrap:wrap; gap:8px; }
+                .receipt-actions{ display:flex; gap:12px; margin-top:16px; justify-content:flex-end; flex-wrap:wrap; }
+                .action-btn{ background:rgba(255,255,255,0.05); border:1px solid var(--border-tactic); padding:8px 16px; border-radius:8px; cursor:pointer; font-size:0.7rem; color:#94a3b8; transition:all 0.2s; }
+                .action-btn:hover{ border-color:var(--elite-primary); color:var(--elite-primary); }
+                @media (max-width:768px){ .stats-grid{ grid-template-columns:1fr 1fr; } .receipt-header{ flex-direction:column; align-items:flex-start; } .receipt-status{ margin-left:0; } }
+            </style>
         `;
         
-        // Estilos adicionais
-        const style = document.createElement('style');
-        style.textContent = `
-            .shadow-dossier-dashboard { padding: 0; }
-            .integrity-badge { background: var(--bg-terminal); padding: 8px 16px; border-radius: 20px; font-size: 0.7rem; font-weight: bold; }
-            .integrity-badge.excellent { border-left: 3px solid #00e676; color: #00e676; }
-            .integrity-badge.good { border-left: 3px solid #ffc107; color: #ffc107; }
-            .integrity-badge.warning { border-left: 3px solid #ff1744; color: #ff1744; }
-            .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin: 20px 0; }
-            .stat-card { background: var(--bg-command); border-radius: 16px; padding: 20px; text-align: center; }
-            .stat-value { font-size: 1.8rem; font-weight: 800; font-family: 'JetBrains Mono'; color: var(--elite-primary); }
-            .stat-label { font-size: 0.7rem; color: #94a3b8; margin-top: 8px; }
-            .action-buttons { display: flex; gap: 12px; margin: 20px 0; flex-wrap: wrap; }
-            .receipt-card { background: var(--bg-terminal); border-radius: 16px; padding: 20px; margin-bottom: 16px; border: 1px solid var(--border-tactic); }
-            .receipt-card.valid { border-left: 4px solid #00e676; }
-            .receipt-card.invalid { border-left: 4px solid #ff1744; }
-            .receipt-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--border-tactic); }
-            .receipt-header i { font-size: 1.5rem; }
-            .receipt-card.valid .receipt-header i { color: #00e676; }
-            .receipt-card.invalid .receipt-header i { color: #ff1744; }
-            .receipt-id { font-size: 0.65rem; color: #64748b; font-family: monospace; }
-            .receipt-status { margin-left: auto; padding: 4px 12px; border-radius: 20px; font-size: 0.7rem; font-weight: bold; }
-            .status-valid { background: rgba(0, 230, 118, 0.1); color: #00e676; }
-            .status-invalid { background: rgba(255, 23, 68, 0.1); color: #ff1744; }
-            .detail-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 0.75rem; }
-            .detail-row code { font-family: monospace; font-size: 0.7rem; color: #94a3b8; }
-            .receipt-actions { display: flex; gap: 12px; margin-top: 16px; justify-content: flex-end; }
-            .action-btn { background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border-tactic); padding: 8px 16px; border-radius: 8px; cursor: pointer; transition: all 0.2s; font-size: 0.7rem; color: #94a3b8; }
-            .action-btn:hover { border-color: var(--elite-primary); color: var(--elite-primary); }
-            @media (max-width: 768px) {
-                .stats-grid { grid-template-columns: 1fr 1fr; }
-                .receipt-header { flex-wrap: wrap; }
-                .receipt-status { margin-left: 0; }
-            }
-        `;
-        container.appendChild(style);
-        
-        // Event listeners
-        document.getElementById('newSubmissionBtn')?.addEventListener('click', () => {
-            if (window.EliteUtils) {
-                window.EliteUtils.showToast('Funcionalidade de submissão ao CITIUS - Selecione um documento PDF', 'info');
-                this.showSubmissionModal();
-            }
-        });
-        
-        document.getElementById('newBindingBtn')?.addEventListener('click', () => {
-            if (window.EliteUtils) {
-                window.EliteUtils.showToast('Funcionalidade de vinculação - Selecione um recibo CITIUS', 'info');
-                this.showBindingModal();
-            }
-        });
+        document.getElementById('newSubmissionBtn')?.addEventListener('click', () => this.showSubmissionModal());
+        document.getElementById('newBindingBtn')?.addEventListener('click', () => this.showBindingModal());
+        document.getElementById('consultCitiusBtn')?.addEventListener('click', () => this.showCitiusConsultModal());
         
         document.getElementById('verifyAllBtn')?.addEventListener('click', () => {
-            let validCount = 0;
-            let invalidCount = 0;
-            
+            let validCount = 0, invalidCount = 0;
             for (const [bindingId, binding] of this.verifiedReceipts) {
                 const verification = this.verifyBinding(bindingId);
-                if (verification.valid) {
-                    validCount++;
-                } else {
-                    invalidCount++;
-                }
+                if (verification.valid) validCount++; else invalidCount++;
             }
-            
             if (window.EliteUtils) {
-                window.EliteUtils.showToast(`Verificação concluída: ${validCount} vínculos válidos, ${invalidCount} vínculos inválidos`, 
+                window.EliteUtils.showToast(`Verificação: ${validCount} vínculos válidos, ${invalidCount} inválidos`, 
                     invalidCount > 0 ? 'warning' : 'success');
             }
         });
@@ -1024,14 +945,11 @@ class ShadowDossierManager {
             btn.addEventListener('click', () => {
                 const bindingId = btn.dataset.binding;
                 const verification = this.verifyBinding(bindingId);
-                if (verification.valid) {
-                    if (window.EliteUtils) {
-                        window.EliteUtils.showToast(`✅ Vínculo ${bindingId.substring(0, 16)}... íntegro e verificado`, 'success');
-                    }
-                } else {
-                    if (window.EliteUtils) {
-                        window.EliteUtils.showToast(`❌ Vínculo ${bindingId.substring(0, 16)}... comprometido! Verifique a integridade do documento.`, 'error');
-                    }
+                if (window.EliteUtils) {
+                    window.EliteUtils.showToast(verification.valid ? 
+                        `✅ Vínculo ${bindingId.substring(0, 16)}... íntegro` : 
+                        `❌ Vínculo ${bindingId.substring(0, 16)}... comprometido!`, 
+                        verification.valid ? 'success' : 'error');
                 }
             });
         });
@@ -1045,7 +963,7 @@ class ShadowDossierManager {
     }
     
     /**
-     * Mostra modal de submissão
+     * Mostra modal de submissão ao CITIUS
      */
     showSubmissionModal() {
         const modalBody = document.getElementById('caseDetailBody');
@@ -1054,28 +972,10 @@ class ShadowDossierManager {
         modalBody.innerHTML = `
             <div class="submission-form">
                 <h3>Submissão ao CITIUS</h3>
-                <div class="form-group">
-                    <label>Documento PDF *</label>
-                    <input type="file" id="submissionFile" accept=".pdf" required>
-                </div>
-                <div class="form-group">
-                    <label>Número de Processo (opcional)</label>
-                    <input type="text" id="submissionProcessId" placeholder="Deixe em branco para gerar automático">
-                </div>
-                <div class="form-group">
-                    <label>Tribunal</label>
-                    <select id="submissionCourt">
-                        <option value="Tribunal Judicial de Lisboa">Tribunal Judicial de Lisboa</option>
-                        <option value="Tribunal Judicial do Porto">Tribunal Judicial do Porto</option>
-                        <option value="Tribunal Judicial de Braga">Tribunal Judicial de Braga</option>
-                        <option value="Tribunal Judicial de Coimbra">Tribunal Judicial de Coimbra</option>
-                        <option value="CAAD">CAAD - Centro de Arbitragem Administrativa</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>Secção</label>
-                    <input type="text" id="submissionSection" placeholder="Ex: 1ª Secção" value="1ª Secção">
-                </div>
+                <div class="form-group"><label>Documento PDF *</label><input type="file" id="submissionFile" accept=".pdf" required></div>
+                <div class="form-group"><label>Número de Processo (opcional)</label><input type="text" id="submissionProcessId" placeholder="Deixe em branco para gerar automático"></div>
+                <div class="form-group"><label>Tribunal</label><select id="submissionCourt"><option value="Tribunal Judicial de Lisboa">Tribunal Judicial de Lisboa</option><option value="Tribunal Judicial do Porto">Tribunal Judicial do Porto</option><option value="Tribunal Judicial de Braga">Tribunal Judicial de Braga</option><option value="Tribunal Judicial de Coimbra">Tribunal Judicial de Coimbra</option><option value="CAAD">CAAD - Centro de Arbitragem Administrativa</option></select></div>
+                <div class="form-group"><label>Secção</label><input type="text" id="submissionSection" placeholder="Ex: 1ª Secção" value="1ª Secção"></div>
                 <button id="submitToCitiusBtn" class="elite-btn primary full-width">SUBMETER AO CITIUS</button>
             </div>
         `;
@@ -1083,44 +983,20 @@ class ShadowDossierManager {
         document.getElementById('submitToCitiusBtn')?.addEventListener('click', async () => {
             const fileInput = document.getElementById('submissionFile');
             const file = fileInput?.files[0];
-            
-            if (!file) {
-                alert('Selecione um documento PDF');
-                return;
-            }
-            
-            if (file.type !== 'application/pdf') {
-                alert('Apenas ficheiros PDF são aceites');
-                return;
-            }
+            if (!file) { alert('Selecione um documento PDF'); return; }
+            if (file.type !== 'application/pdf') { alert('Apenas ficheiros PDF são aceites'); return; }
             
             const processId = document.getElementById('submissionProcessId')?.value || null;
             const court = document.getElementById('submissionCourt')?.value;
             const section = document.getElementById('submissionSection')?.value;
             
             try {
-                const preValidation = await this.preValidateSubmission(file, {
-                    fileName: file.name,
-                    caseId: 'CASE_DEMO',
-                    court: court
-                });
-                
-                const receipt = await this.submitToCitius(preValidation.documentId, {
-                    processId: processId,
-                    court: court,
-                    section: section
-                });
-                
-                alert(`✅ Documento submetido com sucesso!\n\nRecibo: ${receipt.receiptId}\nProcesso: ${receipt.processId}\nTimestamp: ${receipt.officialTimestampFormatted}`);
-                
+                const preValidation = await this.preValidateSubmission(file, { fileName: file.name, caseId: 'CASE_DEMO', court: court });
+                const receipt = await this.submitToCitius(preValidation.documentId, { processId: processId, court: court, section: section });
+                alert(`✅ Documento submetido!\n\nRecibo: ${receipt.receiptId}\nProcesso: ${receipt.processId}`);
                 document.getElementById('caseDetailModal').style.display = 'none';
-                
-                if (window.EliteUtils) {
-                    window.EliteUtils.showToast(`Documento submetido ao CITIUS. Recibo: ${receipt.receiptId}`, 'success');
-                }
-                
+                if (window.EliteUtils) window.EliteUtils.showToast(`Documento submetido ao CITIUS. Recibo: ${receipt.receiptId}`, 'success');
             } catch (error) {
-                console.error('Erro na submissão:', error);
                 alert(`Erro na submissão: ${error.message}`);
             }
         });
@@ -1138,22 +1014,10 @@ class ShadowDossierManager {
         modalBody.innerHTML = `
             <div class="binding-form">
                 <h3>Vincular Recibo CITIUS</h3>
-                <div class="form-group">
-                    <label>ID da Evidência no Forensic Vault</label>
-                    <input type="text" id="bindingEvidenceId" placeholder="Ex: EVD_xxx" required>
-                </div>
-                <div class="form-group">
-                    <label>ID do Recibo CITIUS</label>
-                    <input type="text" id="bindingReceiptId" placeholder="Ex: CITIUS_xxx" required>
-                </div>
-                <div class="form-group">
-                    <label>Número do Processo</label>
-                    <input type="text" id="bindingProcessId" placeholder="Ex: 1234/23.8T8LSB" required>
-                </div>
-                <div class="form-group">
-                    <label>Tribunal</label>
-                    <input type="text" id="bindingCourt" placeholder="Ex: Tribunal Judicial de Lisboa">
-                </div>
+                <div class="form-group"><label>ID da Evidência no Forensic Vault</label><input type="text" id="bindingEvidenceId" placeholder="Ex: EVD_xxx" required></div>
+                <div class="form-group"><label>ID do Recibo CITIUS</label><input type="text" id="bindingReceiptId" placeholder="Ex: CITIUS_xxx" required></div>
+                <div class="form-group"><label>Número do Processo</label><input type="text" id="bindingProcessId" placeholder="Ex: 1234/23.8T8LSB" required></div>
+                <div class="form-group"><label>Tribunal</label><input type="text" id="bindingCourt" placeholder="Ex: Tribunal Judicial de Lisboa"></div>
                 <button id="createBindingBtn" class="elite-btn primary full-width">CRIAR VÍNCULO</button>
             </div>
         `;
@@ -1164,10 +1028,7 @@ class ShadowDossierManager {
             const processId = document.getElementById('bindingProcessId')?.value;
             const court = document.getElementById('bindingCourt')?.value || 'Tribunal Judicial de Lisboa';
             
-            if (!evidenceId || !receiptId || !processId) {
-                alert('Preencha todos os campos obrigatórios');
-                return;
-            }
+            if (!evidenceId || !receiptId || !processId) { alert('Preencha todos os campos obrigatórios'); return; }
             
             const mockReceipt = {
                 receiptId: receiptId,
@@ -1180,16 +1041,86 @@ class ShadowDossierManager {
             
             try {
                 const binding = await this.bindCitiusReceipt(evidenceId, mockReceipt, processId);
-                alert(`✅ Vínculo criado com sucesso!\n\nID: ${binding.bindingId}\nStatus: ${binding.status}`);
+                alert(`✅ Vínculo criado!\n\nID: ${binding.bindingId}\nStatus: ${binding.status}`);
                 document.getElementById('caseDetailModal').style.display = 'none';
-                
-                if (window.EliteUtils) {
-                    window.EliteUtils.showToast(`Vínculo ${binding.bindingId.substring(0, 16)}... criado com sucesso`, 'success');
-                }
-                
+                if (window.EliteUtils) window.EliteUtils.showToast(`Vínculo ${binding.bindingId.substring(0, 16)}... criado`, 'success');
             } catch (error) {
-                console.error('Erro na vinculação:', error);
                 alert(`Erro na vinculação: ${error.message}`);
+            }
+        });
+        
+        document.getElementById('caseDetailModal').style.display = 'flex';
+    }
+    
+    /**
+     * Mostra modal de consulta ao CITIUS
+     */
+    showCitiusConsultModal() {
+        const modalBody = document.getElementById('caseDetailBody');
+        if (!modalBody) return;
+        
+        modalBody.innerHTML = `
+            <div class="citius-consult-form">
+                <h3>Consulta ao CITIUS</h3>
+                <div class="form-group"><label>Número de Processo</label><input type="text" id="citiusProcessId" placeholder="Ex: 1234/23.8T8LSB" required></div>
+                <button id="consultProcessBtn" class="elite-btn primary full-width">CONSULTAR PROCESSO</button>
+                <div id="citiusResult" style="margin-top: 20px; display: none;"></div>
+            </div>
+        `;
+        
+        document.getElementById('consultProcessBtn')?.addEventListener('click', async () => {
+            const processId = document.getElementById('citiusProcessId')?.value;
+            if (!processId) { alert('Informe o número do processo'); return; }
+            
+            const resultDiv = document.getElementById('citiusResult');
+            resultDiv.innerHTML = '<div class="loading-shimmer" style="height: 100px;"></div>';
+            resultDiv.style.display = 'block';
+            
+            try {
+                const response = await fetch(`/citius/processo/${processId}`);
+                const data = await response.json();
+                
+                if (data.success && data.data) {
+                    const p = data.data;
+                    resultDiv.innerHTML = `
+                        <div class="citius-result-card">
+                            <h4><i class="fas fa-gavel"></i> Processo ${p.id}</h4>
+                            <div class="citius-detail"><strong>Tribunal:</strong> ${p.tribunal}</div>
+                            <div class="citius-detail"><strong>Juiz:</strong> ${p.juiz}</div>
+                            <div class="citius-detail"><strong>Status:</strong> <span class="status-badge">${p.status}</span></div>
+                            <div class="citius-detail"><strong>Autor:</strong> ${p.partes.autor}</div>
+                            <div class="citius-detail"><strong>Réu:</strong> ${p.partes.réu}</div>
+                            <div class="citius-timeline"><strong>Movimentos Recentes:</strong><ul>${p.movimentos.slice(-3).map(m => `<li>${m.data} - ${m.descricao}</li>`).join('')}</ul></div>
+                            <button id="bindFromCitiusBtn" class="elite-btn secondary" data-process="${p.id}" data-court="${p.tribunal}"><i class="fas fa-link"></i> VINCULAR AO VAULT</button>
+                        </div>
+                        <style>
+                            .citius-result-card{ background:var(--bg-terminal); border-radius:12px; padding:16px; margin-top:16px; }
+                            .citius-detail{ padding:8px 0; border-bottom:1px solid var(--border-tactic); font-size:0.75rem; }
+                            .citius-timeline ul{ margin:8px 0 0 20px; font-size:0.7rem; color:#94a3b8; }
+                        </style>
+                    `;
+                    
+                    document.getElementById('bindFromCitiusBtn')?.addEventListener('click', () => {
+                        const processNumber = document.getElementById('bindFromCitiusBtn').dataset.process;
+                        const court = document.getElementById('bindFromCitiusBtn').dataset.court;
+                        const evidenceId = prompt('ID da evidência para vincular:', 'EVD_DEMO_001');
+                        if (evidenceId) {
+                            const mockReceipt = {
+                                receiptId: `CITIUS_${Date.now()}`,
+                                documentHash: CryptoJS.SHA256(evidenceId + processNumber).toString(),
+                                processId: processNumber,
+                                court: court,
+                                submissionTimestamp: new Date().toISOString(),
+                                officialTimestampFormatted: new Date().toLocaleString('pt-PT')
+                            };
+                            this.bindCitiusReceipt(evidenceId, mockReceipt, processNumber);
+                        }
+                    });
+                } else {
+                    resultDiv.innerHTML = `<div class="error-state"><i class="fas fa-exclamation-triangle"></i> Processo não encontrado no CITIUS</div>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error-state"><i class="fas fa-exclamation-triangle"></i> Erro na consulta: ${error.message}</div>`;
             }
         });
         
@@ -1197,7 +1128,6 @@ class ShadowDossierManager {
     }
 }
 
-// Instância global (utiliza o ForensicVault existente)
+// Instância global
 window.ShadowDossier = new ShadowDossierManager(window.ForensicVault);
-
-console.log('[ELITE] Shadow Dossier Manager carregado - Simbiose Judiciária Ativa');
+console.log('[ELITE] Shadow Dossier Manager carregado com mock CITIUS');
