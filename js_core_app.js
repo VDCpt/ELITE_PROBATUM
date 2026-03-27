@@ -301,6 +301,405 @@
     };
     
     // =========================================================================
+    // BASE DE DADOS DE PERGUNTAS ESTRATÉGICAS (50 POR ÁREA)
+    // =========================================================================
+    
+    const STRATEGIC_QUESTIONS = {
+        insolvency: {
+            name: 'Insolvência (CIRE)',
+            icon: 'fa-chart-line',
+            questions: [
+                { id: 'INS_001', text: 'Em que data o devedor deixou de cumprir as obrigações exigíveis?', weight: 0.85, category: 'timing' },
+                { id: 'INS_002', text: 'Houve dissipação de património nos 2 anos anteriores à data da declaração de insolvência?', weight: 0.92, category: 'assets' },
+                { id: 'INS_003', text: 'O devedor praticou atos de má gestão ou violou deveres legais?', weight: 0.88, category: 'conduct' },
+                { id: 'INS_004', text: 'Existem contratos de financiamento com garantias reais constituídas em favor de terceiros?', weight: 0.78, category: 'financing' },
+                { id: 'INS_005', text: 'Foram realizadas transmissões de bens a título gratuito nos 2 anos anteriores?', weight: 0.90, category: 'assets' },
+                { id: 'INS_006', text: 'O devedor tem registo de execuções fiscais ou cíveis pendentes?', weight: 0.82, category: 'litigation' },
+                { id: 'INS_007', text: 'Existem bens penhorados ou arrestados em processos pendentes?', weight: 0.80, category: 'assets' },
+                { id: 'INS_008', text: 'O devedor apresentou contas irregulares ou com indícios de falsidade?', weight: 0.87, category: 'conduct' },
+                { id: 'INS_009', text: 'Houve preferência de credores nos 6 meses anteriores à insolvência?', weight: 0.85, category: 'conduct' },
+                { id: 'INS_010', text: 'O devedor celebrou contratos simulados para ocultar património?', weight: 0.89, category: 'assets' },
+                { id: 'INS_011', text: 'Existe administrador de insolvência nomeado?', weight: 0.70, category: 'procedure' },
+                { id: 'INS_012', text: 'Foram apresentadas reclamações de créditos?', weight: 0.75, category: 'procedure' },
+                { id: 'INS_013', text: 'Existem créditos com garantia real?', weight: 0.78, category: 'creditors' },
+                { id: 'INS_014', text: 'O devedor é pessoa singular ou coletiva?', weight: 0.65, category: 'profile' },
+                { id: 'INS_015', text: 'Existem créditos laborais em dívida?', weight: 0.80, category: 'creditors' },
+                { id: 'INS_016', text: 'O devedor requereu exoneração do passivo restante?', weight: 0.82, category: 'procedure' },
+                { id: 'INS_017', text: 'O devedor cumpriu o dever de colaboração com o administrador?', weight: 0.75, category: 'conduct' },
+                { id: 'INS_018', text: 'Existem ações de responsabilidade civil contra administradores?', weight: 0.85, category: 'liability' },
+                { id: 'INS_019', text: 'Foram detectados indícios de insolvência culposa?', weight: 0.90, category: 'conduct' },
+                { id: 'INS_020', text: 'O devedor tem bens no estrangeiro?', weight: 0.72, category: 'assets' },
+                { id: 'INS_021', text: 'Existem contratos de locação financeira?', weight: 0.68, category: 'financing' },
+                { id: 'INS_022', text: 'O devedor tem acionistas ou sócios com responsabilidade ilimitada?', weight: 0.75, category: 'profile' },
+                { id: 'INS_023', text: 'Existem acordos de subordinação de créditos?', weight: 0.70, category: 'creditors' },
+                { id: 'INS_024', text: 'Foram impugnadas reclamações de créditos?', weight: 0.73, category: 'procedure' },
+                { id: 'INS_025', text: 'Existem bens onerados com reserva de propriedade?', weight: 0.72, category: 'assets' },
+                { id: 'INS_026', text: 'O devedor tem contratos de factoring ou cessão de créditos?', weight: 0.68, category: 'financing' },
+                { id: 'INS_027', text: 'Houve pagamentos a credores não justificados?', weight: 0.82, category: 'conduct' },
+                { id: 'INS_028', text: 'Existem créditos da Autoridade Tributária?', weight: 0.78, category: 'creditors' },
+                { id: 'INS_029', text: 'O devedor apresentou o plano de insolvência?', weight: 0.75, category: 'procedure' },
+                { id: 'INS_030', text: 'Existem credores que sejam pessoas especialmente relacionadas?', weight: 0.80, category: 'creditors' },
+                { id: 'INS_031', text: 'O devedor tem processos de recuperação de empresas em curso?', weight: 0.72, category: 'procedure' },
+                { id: 'INS_032', text: 'Foram declarados créditos subordinados?', weight: 0.70, category: 'creditors' },
+                { id: 'INS_033', text: 'O devedor tem bens arrendados ou cedidos a terceiros?', weight: 0.68, category: 'assets' },
+                { id: 'INS_034', text: 'Existem contratos de seguro com valor de resgate?', weight: 0.65, category: 'assets' },
+                { id: 'INS_035', text: 'O devedor tem planos de poupança-reforma?', weight: 0.65, category: 'assets' },
+                { id: 'INS_036', text: 'Foram realizadas doações nos últimos 2 anos?', weight: 0.85, category: 'assets' },
+                { id: 'INS_037', text: 'O devedor é gerente de outras sociedades?', weight: 0.70, category: 'profile' },
+                { id: 'INS_038', text: 'Existem bens em comunhão conjugal?', weight: 0.75, category: 'assets' },
+                { id: 'INS_039', text: 'O cônjuge é sócio ou gerente?', weight: 0.72, category: 'profile' },
+                { id: 'INS_040', text: 'Foram realizadas partilhas de bens recentemente?', weight: 0.78, category: 'assets' },
+                { id: 'INS_041', text: 'O devedor tem direito a indemnizações?', weight: 0.68, category: 'assets' },
+                { id: 'INS_042', text: 'Existem ações judiciais contra o devedor?', weight: 0.80, category: 'litigation' },
+                { id: 'INS_043', text: 'O devedor tem penhoras sobre salário ou rendimentos?', weight: 0.75, category: 'assets' },
+                { id: 'INS_044', text: 'Existem bens de difícil alienação?', weight: 0.70, category: 'assets' },
+                { id: 'INS_045', text: 'O devedor tem créditos sobre terceiros?', weight: 0.72, category: 'assets' },
+                { id: 'INS_046', text: 'Foram emitidas certidões de dívida?', weight: 0.68, category: 'procedure' },
+                { id: 'INS_047', text: 'O devedor tem registo de insolvência anterior?', weight: 0.75, category: 'history' },
+                { id: 'INS_048', text: 'Existem garantias pessoais prestadas pelo devedor?', weight: 0.78, category: 'liability' },
+                { id: 'INS_049', text: 'O devedor tem contas bancárias no estrangeiro?', weight: 0.72, category: 'assets' },
+                { id: 'INS_050', text: 'Foram declarados créditos fiscais ou contributivos?', weight: 0.80, category: 'creditors' }
+            ]
+        },
+        labor: {
+            name: 'Direito do Trabalho',
+            icon: 'fa-briefcase',
+            questions: [
+                { id: 'LAB_001', text: 'Qual a data de início do contrato de trabalho?', weight: 0.85, category: 'timing' },
+                { id: 'LAB_002', text: 'O trabalhador tinha vínculo efetivo ou era prestador de serviços?', weight: 0.90, category: 'contract' },
+                { id: 'LAB_003', text: 'Existia contrato de trabalho escrito?', weight: 0.75, category: 'contract' },
+                { id: 'LAB_004', text: 'O trabalhador tinha horário de trabalho definido?', weight: 0.80, category: 'conditions' },
+                { id: 'LAB_005', text: 'Recebia ordens ou instruções do empregador?', weight: 0.85, category: 'subordination' },
+                { id: 'LAB_006', text: 'O trabalhador tinha assiduidade e obrigação de comparência?', weight: 0.82, category: 'subordination' },
+                { id: 'LAB_007', text: 'Os instrumentos de trabalho eram fornecidos pelo empregador?', weight: 0.78, category: 'conditions' },
+                { id: 'LAB_008', text: 'Existia retribuição mensal fixa?', weight: 0.80, category: 'compensation' },
+                { id: 'LAB_009', text: 'Foram pagos subsídios de férias e Natal?', weight: 0.75, category: 'compensation' },
+                { id: 'LAB_010', text: 'O trabalhador gozou férias regularmente?', weight: 0.70, category: 'conditions' },
+                { id: 'LAB_011', text: 'Houve despedimento? Em que data?', weight: 0.88, category: 'termination' },
+                { id: 'LAB_012', text: 'O despedimento foi por iniciativa do empregador ou do trabalhador?', weight: 0.85, category: 'termination' },
+                { id: 'LAB_013', text: 'Houve procedimento disciplinar prévio?', weight: 0.82, category: 'procedure' },
+                { id: 'LAB_014', text: 'O trabalhador foi notificado da nota de culpa?', weight: 0.80, category: 'procedure' },
+                { id: 'LAB_015', text: 'Existiam testemunhas do despedimento?', weight: 0.75, category: 'evidence' },
+                { id: 'LAB_016', text: 'O trabalhador era representante sindical?', weight: 0.72, category: 'profile' },
+                { id: 'LAB_017', text: 'Houve tentativa de conciliação na ACT?', weight: 0.70, category: 'procedure' },
+                { id: 'LAB_018', text: 'O trabalhador tem mais de 5 anos de antiguidade?', weight: 0.78, category: 'timing' },
+                { id: 'LAB_019', text: 'O trabalhador tem mais de 50 anos?', weight: 0.65, category: 'profile' },
+                { id: 'LAB_020', text: 'Existiam faltas injustificadas?', weight: 0.72, category: 'conduct' },
+                { id: 'LAB_021', text: 'Houve acidente de trabalho?', weight: 0.80, category: 'health' },
+                { id: 'LAB_022', text: 'O trabalhador sofreu assédio moral?', weight: 0.85, category: 'conduct' },
+                { id: 'LAB_023', text: 'O trabalhador exercia funções de confiança?', weight: 0.70, category: 'profile' },
+                { id: 'LAB_024', text: 'Existiam horas extraordinárias não pagas?', weight: 0.82, category: 'compensation' },
+                { id: 'LAB_025', text: 'O trabalhador usava viatura própria para serviço?', weight: 0.68, category: 'conditions' },
+                { id: 'LAB_026', text: 'Existiam ajudas de custo pagas?', weight: 0.70, category: 'compensation' },
+                { id: 'LAB_027', text: 'O trabalhador tinha cartão de refeição?', weight: 0.65, category: 'compensation' },
+                { id: 'LAB_028', text: 'Houve alteração unilateral das funções?', weight: 0.78, category: 'conditions' },
+                { id: 'LAB_029', text: 'O trabalhador foi transferido para outra localidade?', weight: 0.75, category: 'conditions' },
+                { id: 'LAB_030', text: 'Existia regime de isenção de horário?', weight: 0.72, category: 'conditions' },
+                { id: 'LAB_031', text: 'O trabalhador estava em lay-off?', weight: 0.80, category: 'suspension' },
+                { id: 'LAB_032', text: 'Houve redução de salário?', weight: 0.78, category: 'compensation' },
+                { id: 'LAB_033', text: 'O empregador suspendeu o contrato?', weight: 0.75, category: 'suspension' },
+                { id: 'LAB_034', text: 'Existiam condições de trabalho perigosas?', weight: 0.82, category: 'health' },
+                { id: 'LAB_035', text: 'O trabalhador denunciou a situação à ACT?', weight: 0.70, category: 'procedure' },
+                { id: 'LAB_036', text: 'Existem recibos de vencimento?', weight: 0.85, category: 'evidence' },
+                { id: 'LAB_037', text: 'Existem extratos bancários com pagamentos?', weight: 0.88, category: 'evidence' },
+                { id: 'LAB_038', text: 'Existem mensagens ou emails trocados?', weight: 0.80, category: 'evidence' },
+                { id: 'LAB_039', text: 'Existem testemunhas presenciais?', weight: 0.82, category: 'evidence' },
+                { id: 'LAB_040', text: 'O trabalhador apresentou queixa na ACT?', weight: 0.75, category: 'procedure' },
+                { id: 'LAB_041', text: 'Houve ação inspetiva da ACT?', weight: 0.78, category: 'procedure' },
+                { id: 'LAB_042', text: 'O empregador tem processo contraordenacional?', weight: 0.72, category: 'history' },
+                { id: 'LAB_043', text: 'O empregador tem histórico de despedimentos?', weight: 0.70, category: 'history' },
+                { id: 'LAB_044', text: 'O trabalhador é membro de sindicato?', weight: 0.68, category: 'profile' },
+                { id: 'LAB_045', text: 'Houve greve no setor recentemente?', weight: 0.65, category: 'context' },
+                { id: 'LAB_046', text: 'Existe acordo coletivo de trabalho aplicável?', weight: 0.75, category: 'regulation' },
+                { id: 'LAB_047', text: 'O empregador está em processo de insolvência?', weight: 0.82, category: 'context' },
+                { id: 'LAB_048', text: 'O Fundo de Garantia Salarial foi acionado?', weight: 0.78, category: 'procedure' },
+                { id: 'LAB_049', text: 'Foram pagos créditos pelo FGS?', weight: 0.75, category: 'compensation' },
+                { id: 'LAB_050', text: 'O trabalhador tem outros processos laborais?', weight: 0.70, category: 'history' }
+            ]
+        },
+        tax: {
+            name: 'Direito Fiscal',
+            icon: 'fa-calculator',
+            questions: [
+                { id: 'TAX_001', text: 'Em que período ocorreram os factos tributários?', weight: 0.85, category: 'timing' },
+                { id: 'TAX_002', text: 'Houve notificação da Autoridade Tributária?', weight: 0.90, category: 'procedure' },
+                { id: 'TAX_003', text: 'Qual o imposto em causa (IRS, IRC, IVA, IMT, IUC)?', weight: 0.82, category: 'type' },
+                { id: 'TAX_004', text: 'Qual o montante em disputa?', weight: 0.88, category: 'value' },
+                { id: 'TAX_005', text: 'Existem juros de mora associados?', weight: 0.75, category: 'value' },
+                { id: 'TAX_006', text: 'O sujeito passivo apresentou reclamação graciosa?', weight: 0.80, category: 'procedure' },
+                { id: 'TAX_007', text: 'Houve recurso hierárquico?', weight: 0.78, category: 'procedure' },
+                { id: 'TAX_008', text: 'O processo está em impugnação judicial?', weight: 0.85, category: 'procedure' },
+                { id: 'TAX_009', text: 'Existe processo de execução fiscal?', weight: 0.82, category: 'procedure' },
+                { id: 'TAX_010', text: 'Houve penhora de bens?', weight: 0.80, category: 'procedure' },
+                { id: 'TAX_011', text: 'O contribuinte tem registo de incumprimento?', weight: 0.75, category: 'history' },
+                { id: 'TAX_012', text: 'Foram apresentados meios de prova documental?', weight: 0.88, category: 'evidence' },
+                { id: 'TAX_013', text: 'Existem faturas ou recibos emitidos?', weight: 0.85, category: 'evidence' },
+                { id: 'TAX_014', text: 'Existem extratos bancários?', weight: 0.82, category: 'evidence' },
+                { id: 'TAX_015', text: 'A AT utilizou métodos indiretos?', weight: 0.78, category: 'method' },
+                { id: 'TAX_016', text: 'Houve prescrição do direito à liquidação?', weight: 0.85, category: 'timing' },
+                { id: 'TAX_017', text: 'O sujeito passivo requereu caducidade?', weight: 0.80, category: 'procedure' },
+                { id: 'TAX_018', text: 'Existem acórdãos do STA sobre a matéria?', weight: 0.75, category: 'jurisprudence' },
+                { id: 'TAX_019', text: 'O caso tem paralelo com decisão do CAAD?', weight: 0.72, category: 'jurisprudence' },
+                { id: 'TAX_020', text: 'Houve violação do princípio da proporcionalidade?', weight: 0.70, category: 'principle' },
+                { id: 'TAX_021', text: 'A AT violou o segredo bancário?', weight: 0.68, category: 'procedure' },
+                { id: 'TAX_022', text: 'O sujeito passivo é microempresa?', weight: 0.65, category: 'profile' },
+                { id: 'TAX_023', text: 'O sujeito passivo tem regime de contabilidade organizada?', weight: 0.72, category: 'profile' },
+                { id: 'TAX_024', text: 'Houve inspeção tributária?', weight: 0.85, category: 'procedure' },
+                { id: 'TAX_025', text: 'O relatório de inspeção foi contestado?', weight: 0.82, category: 'procedure' },
+                { id: 'TAX_026', text: 'Foram solicitadas diligências complementares?', weight: 0.75, category: 'procedure' },
+                { id: 'TAX_027', text: 'O sujeito passivo apresentou elementos de prova?', weight: 0.88, category: 'evidence' },
+                { id: 'TAX_028', text: 'Existem divergências entre faturação e declarações?', weight: 0.90, category: 'discrepancy' },
+                { id: 'TAX_029', text: 'Houve omissão de rendimentos?', weight: 0.92, category: 'discrepancy' },
+                { id: 'TAX_030', text: 'Existem gastos não comprovados?', weight: 0.85, category: 'discrepancy' },
+                { id: 'TAX_031', text: 'O sujeito passivo deduziu IVA indevido?', weight: 0.80, category: 'discrepancy' },
+                { id: 'TAX_032', text: 'Houve preço de transferência?', weight: 0.78, category: 'discrepancy' },
+                { id: 'TAX_033', text: 'O sujeito passivo tem operações com paraísos fiscais?', weight: 0.75, category: 'context' },
+                { id: 'TAX_034', text: 'Existem contas bancárias não declaradas?', weight: 0.88, category: 'assets' },
+                { id: 'TAX_035', text: 'O sujeito passivo tem bens no estrangeiro?', weight: 0.82, category: 'assets' },
+                { id: 'TAX_036', text: 'Foram entregues declarações Modelo 22?', weight: 0.78, category: 'procedure' },
+                { id: 'TAX_037', text: 'Existem declarações de IRS entregues?', weight: 0.80, category: 'procedure' },
+                { id: 'TAX_038', text: 'As declarações foram entregues dentro do prazo?', weight: 0.75, category: 'timing' },
+                { id: 'TAX_039', text: 'O sujeito passivo tem dívidas fiscais?', weight: 0.85, category: 'history' },
+                { id: 'TAX_040', text: 'Existem certidões de dívida?', weight: 0.82, category: 'evidence' },
+                { id: 'TAX_041', text: 'O sujeito passivo solicitou parcelamento?', weight: 0.70, category: 'procedure' },
+                { id: 'TAX_042', text: 'Houve suspensão da execução fiscal?', weight: 0.75, category: 'procedure' },
+                { id: 'TAX_043', text: 'O sujeito passivo apresentou garantia?', weight: 0.72, category: 'procedure' },
+                { id: 'TAX_044', text: 'Existem testemunhas do facto tributário?', weight: 0.68, category: 'evidence' },
+                { id: 'TAX_045', text: 'O sujeito passivo tem outros processos fiscais?', weight: 0.70, category: 'history' },
+                { id: 'TAX_046', text: 'A AT já decidiu casos similares?', weight: 0.75, category: 'jurisprudence' },
+                { id: 'TAX_047', text: 'O STA já se pronunciou sobre a matéria?', weight: 0.80, category: 'jurisprudence' },
+                { id: 'TAX_048', text: 'Existe jurisprudência favorável?', weight: 0.85, category: 'jurisprudence' },
+                { id: 'TAX_049', text: 'O sujeito passivo tem recursos em andamento?', weight: 0.72, category: 'procedure' },
+                { id: 'TAX_050', text: 'O sujeito passivo está em processo de insolvência?', weight: 0.78, category: 'context' }
+            ]
+        },
+        civil: {
+            name: 'Direito Civil',
+            icon: 'fa-gavel',
+            questions: [
+                { id: 'CIV_001', text: 'Qual a data dos factos que fundamentam a pretensão?', weight: 0.85, category: 'timing' },
+                { id: 'CIV_002', text: 'Existe contrato escrito?', weight: 0.90, category: 'contract' },
+                { id: 'CIV_003', text: 'As partes cumpriram as obrigações contratuais?', weight: 0.88, category: 'performance' },
+                { id: 'CIV_004', text: 'Houve incumprimento? De que natureza?', weight: 0.92, category: 'performance' },
+                { id: 'CIV_005', text: 'Existem testemunhas do negócio jurídico?', weight: 0.78, category: 'evidence' },
+                { id: 'CIV_006', text: 'Houve dolo ou má-fé?', weight: 0.85, category: 'conduct' },
+                { id: 'CIV_007', text: 'O negócio foi simulado?', weight: 0.82, category: 'conduct' },
+                { id: 'CIV_008', text: 'Existe vício de consentimento?', weight: 0.80, category: 'consent' },
+                { id: 'CIV_009', text: 'A parte estava sob coação ou erro?', weight: 0.78, category: 'consent' },
+                { id: 'CIV_010', text: 'Existe documento comprovativo do pagamento?', weight: 0.88, category: 'evidence' },
+                { id: 'CIV_011', text: 'Houve prescrição do direito?', weight: 0.85, category: 'timing' },
+                { id: 'CIV_012', text: 'O prazo de caducidade foi observado?', weight: 0.82, category: 'timing' },
+                { id: 'CIV_013', text: 'A parte contrária reconheceu o direito?', weight: 0.75, category: 'conduct' },
+                { id: 'CIV_014', text: 'Existe confissão de dívida?', weight: 0.80, category: 'evidence' },
+                { id: 'CIV_015', text: 'As partes tentaram conciliação?', weight: 0.70, category: 'procedure' },
+                { id: 'CIV_016', text: 'Existe medição ou arbitragem?', weight: 0.72, category: 'procedure' },
+                { id: 'CIV_017', text: 'O valor da causa está definido?', weight: 0.78, category: 'value' },
+                { id: 'CIV_018', text: 'Existem danos materiais comprovados?', weight: 0.85, category: 'damages' },
+                { id: 'CIV_019', text: 'Existem danos morais?', weight: 0.82, category: 'damages' },
+                { id: 'CIV_020', text: 'O dano é atual ou futuro?', weight: 0.75, category: 'damages' },
+                { id: 'CIV_021', text: 'Existe nexo de causalidade?', weight: 0.88, category: 'causality' },
+                { id: 'CIV_022', text: 'A parte contrária tem responsabilidade civil?', weight: 0.85, category: 'liability' },
+                { id: 'CIV_023', text: 'Existem seguros aplicáveis?', weight: 0.70, category: 'insurance' },
+                { id: 'CIV_024', text: 'O sinistro foi participado à seguradora?', weight: 0.72, category: 'procedure' },
+                { id: 'CIV_025', text: 'Existe peritagem realizada?', weight: 0.80, category: 'evidence' },
+                { id: 'CIV_026', text: 'O perito tem credenciais?', weight: 0.75, category: 'evidence' },
+                { id: 'CIV_027', text: 'As partes têm capacidade jurídica?', weight: 0.78, category: 'capacity' },
+                { id: 'CIV_028', text: 'O representante tem poderes?', weight: 0.82, category: 'capacity' },
+                { id: 'CIV_029', text: 'Existe litispendência?', weight: 0.70, category: 'procedure' },
+                { id: 'CIV_030', text: 'O tribunal tem competência?', weight: 0.75, category: 'jurisdiction' },
+                { id: 'CIV_031', text: 'Existe caso julgado?', weight: 0.72, category: 'procedure' },
+                { id: 'CIV_032', text: 'As partes escolheram foro?', weight: 0.68, category: 'contract' },
+                { id: 'CIV_033', text: 'Existem factos notórios?', weight: 0.70, category: 'evidence' },
+                { id: 'CIV_034', text: 'Existem presunções legais?', weight: 0.75, category: 'evidence' },
+                { id: 'CIV_035', text: 'O juiz pode usar equidade?', weight: 0.65, category: 'principle' },
+                { id: 'CIV_036', text: 'A parte contrária é solvente?', weight: 0.80, category: 'context' },
+                { id: 'CIV_037', text: 'Existem bens penhoráveis?', weight: 0.78, category: 'context' },
+                { id: 'CIV_038', text: 'A parte contrária tem outros processos?', weight: 0.72, category: 'context' },
+                { id: 'CIV_039', text: 'Houve tentativa de cobrança amigável?', weight: 0.70, category: 'procedure' },
+                { id: 'CIV_040', text: 'Existem emails ou mensagens trocadas?', weight: 0.85, category: 'evidence' },
+                { id: 'CIV_041', text: 'As partes têm relação prévia?', weight: 0.75, category: 'context' },
+                { id: 'CIV_042', text: 'Existem contratos anteriores?', weight: 0.78, category: 'contract' },
+                { id: 'CIV_043', text: 'Houve novação ou transação?', weight: 0.72, category: 'contract' },
+                { id: 'CIV_044', text: 'Existe fiança ou aval?', weight: 0.70, category: 'guarantee' },
+                { id: 'CIV_045', text: 'O fiador foi notificado?', weight: 0.68, category: 'procedure' },
+                { id: 'CIV_046', text: 'Existem bens comuns do casal?', weight: 0.75, category: 'assets' },
+                { id: 'CIV_047', text: 'O regime de bens é conhecido?', weight: 0.72, category: 'context' },
+                { id: 'CIV_048', text: 'Existem herdeiros legitimários?', weight: 0.78, category: 'succession' },
+                { id: 'CIV_049', text: 'Foi feito inventário?', weight: 0.75, category: 'procedure' },
+                { id: 'CIV_050', text: 'O testamento é válido?', weight: 0.80, category: 'succession' }
+            ]
+        },
+        commercial: {
+            name: 'Direito Comercial',
+            icon: 'fa-building',
+            questions: [
+                { id: 'COM_001', text: 'A sociedade está legalmente constituída?', weight: 0.90, category: 'formation' },
+                { id: 'COM_002', text: 'O contrato social está registado?', weight: 0.88, category: 'formation' },
+                { id: 'COM_003', text: 'Os sócios têm responsabilidade limitada?', weight: 0.85, category: 'liability' },
+                { id: 'COM_004', text: 'O capital social foi integralizado?', weight: 0.82, category: 'capital' },
+                { id: 'COM_005', text: 'Existem entradas em espécie avaliadas?', weight: 0.75, category: 'capital' },
+                { id: 'COM_006', text: 'Os administradores têm poderes?', weight: 0.85, category: 'governance' },
+                { id: 'COM_007', text: 'Houve violação de deveres de administrador?', weight: 0.88, category: 'governance' },
+                { id: 'COM_008', text: 'Existem contratos com partes relacionadas?', weight: 0.80, category: 'transactions' },
+                { id: 'COM_009', text: 'As deliberações sociais foram válidas?', weight: 0.82, category: 'governance' },
+                { id: 'COM_010', text: 'Houve abuso de direito de voto?', weight: 0.78, category: 'governance' },
+                { id: 'COM_011', text: 'A sociedade tem registo comercial atualizado?', weight: 0.85, category: 'registry' },
+                { id: 'COM_012', text: 'Existem dívidas da sociedade?', weight: 0.88, category: 'liabilities' },
+                { id: 'COM_013', text: 'Os credores estão identificados?', weight: 0.82, category: 'liabilities' },
+                { id: 'COM_014', text: 'Existem garantias prestadas?', weight: 0.80, category: 'liabilities' },
+                { id: 'COM_015', text: 'A sociedade tem contas aprovadas?', weight: 0.85, category: 'accounts' },
+                { id: 'COM_016', text: 'As contas mostram situação líquida positiva?', weight: 0.88, category: 'accounts' },
+                { id: 'COM_017', text: 'Houve distribuição de dividendos ilícitos?', weight: 0.82, category: 'accounts' },
+                { id: 'COM_018', text: 'A sociedade está em situação de insolvência?', weight: 0.90, category: 'insolvency' },
+                { id: 'COM_019', text: 'Foram celebrados contratos de gestão?', weight: 0.75, category: 'management' },
+                { id: 'COM_020', text: 'Existem acordos parassociais?', weight: 0.72, category: 'agreements' },
+                { id: 'COM_021', text: 'Os sócios têm direito de preferência?', weight: 0.78, category: 'rights' },
+                { id: 'COM_022', text: 'Houve alteração do contrato social?', weight: 0.80, category: 'formation' },
+                { id: 'COM_023', text: 'Aumento de capital foi realizado?', weight: 0.82, category: 'capital' },
+                { id: 'COM_024', text: 'Redução de capital foi deliberada?', weight: 0.78, category: 'capital' },
+                { id: 'COM_025', text: 'Existem ações próprias?', weight: 0.75, category: 'capital' },
+                { id: 'COM_026', text: 'Os títulos foram emitidos?', weight: 0.70, category: 'securities' },
+                { id: 'COM_027', text: 'Existem obrigacionistas?', weight: 0.72, category: 'securities' },
+                { id: 'COM_028', text: 'A sociedade tem sede em Portugal?', weight: 0.85, category: 'jurisdiction' },
+                { id: 'COM_029', text: 'Existem estabelecimentos estáveis?', weight: 0.80, category: 'establishment' },
+                { id: 'COM_030', text: 'A sociedade tem atividade real?', weight: 0.82, category: 'activity' },
+                { id: 'COM_031', text: 'A sociedade tem trabalhadores?', weight: 0.78, category: 'activity' },
+                { id: 'COM_032', text: 'Existem contratos de trabalho?', weight: 0.75, category: 'activity' },
+                { id: 'COM_033', text: 'A sociedade tem seguros?', weight: 0.70, category: 'insurance' },
+                { id: 'COM_034', text: 'Existem licenças ou autorizações?', weight: 0.72, category: 'regulation' },
+                { id: 'COM_035', text: 'A sociedade cumpre normas setoriais?', weight: 0.75, category: 'regulation' },
+                { id: 'COM_036', text: 'Existem processos judiciais?', weight: 0.85, category: 'litigation' },
+                { id: 'COM_037', text: 'A sociedade é parte em arbitragem?', weight: 0.78, category: 'litigation' },
+                { id: 'COM_038', text: 'Existem penhoras sobre bens?', weight: 0.82, category: 'enforcement' },
+                { id: 'COM_039', text: 'A sociedade tem dívidas fiscais?', weight: 0.85, category: 'tax' },
+                { id: 'COM_040', text: 'Existem processos de execução fiscal?', weight: 0.80, category: 'tax' },
+                { id: 'COM_041', text: 'Os sócios responderam por dívidas?', weight: 0.75, category: 'liability' },
+                { id: 'COM_042', text: 'Houve desconsideração da personalidade jurídica?', weight: 0.78, category: 'liability' },
+                { id: 'COM_043', text: 'Existem grupos de sociedades?', weight: 0.72, category: 'group' },
+                { id: 'COM_044', text: 'Há relações de domínio?', weight: 0.70, category: 'group' },
+                { id: 'COM_045', text: 'A sociedade tem participações noutras?', weight: 0.75, category: 'group' },
+                { id: 'COM_046', text: 'Existem contratos de franchising?', weight: 0.68, category: 'contracts' },
+                { id: 'COM_047', text: 'Existem contratos de agência?', weight: 0.70, category: 'contracts' },
+                { id: 'COM_048', text: 'O agente tem exclusividade?', weight: 0.65, category: 'contracts' },
+                { id: 'COM_049', text: 'Houve cessação do contrato de agência?', weight: 0.72, category: 'contracts' },
+                { id: 'COM_050', text: 'Existe direito a indemnização?', weight: 0.75, category: 'damages' }
+            ]
+        },
+        criminal: {
+            name: 'Direito Penal',
+            icon: 'fa-gavel',
+            questions: [
+                { id: 'CRIM_001', text: 'Qual a data dos factos imputados?', weight: 0.85, category: 'timing' },
+                { id: 'CRIM_002', text: 'O arguido foi identificado?', weight: 0.90, category: 'identity' },
+                { id: 'CRIM_003', text: 'O arguido tem antecedentes criminais?', weight: 0.82, category: 'history' },
+                { id: 'CRIM_004', text: 'O crime está previsto em que artigo?', weight: 0.88, category: 'typification' },
+                { id: 'CRIM_005', text: 'A pena é de prisão ou multa?', weight: 0.80, category: 'penalty' },
+                { id: 'CRIM_006', text: 'Houve dolo ou negligência?', weight: 0.85, category: 'culpability' },
+                { id: 'CRIM_007', text: 'O arguido confessou os factos?', weight: 0.78, category: 'confession' },
+                { id: 'CRIM_008', text: 'Existem testemunhas presenciais?', weight: 0.88, category: 'evidence' },
+                { id: 'CRIM_009', text: 'Existem provas documentais?', weight: 0.85, category: 'evidence' },
+                { id: 'CRIM_010', text: 'Existem provas periciais?', weight: 0.82, category: 'evidence' },
+                { id: 'CRIM_011', text: 'Existem provas digitais?', weight: 0.80, category: 'evidence' },
+                { id: 'CRIM_012', text: 'A cadeia de custódia foi respeitada?', weight: 0.92, category: 'evidence' },
+                { id: 'CRIM_013', text: 'O arguido foi constituído arguido?', weight: 0.85, category: 'procedure' },
+                { id: 'CRIM_014', text: 'Houve interrogatório judicial?', weight: 0.80, category: 'procedure' },
+                { id: 'CRIM_015', text: 'O arguido está em prisão preventiva?', weight: 0.75, category: 'coercion' },
+                { id: 'CRIM_016', text: 'Foram aplicadas outras medidas de coação?', weight: 0.72, category: 'coercion' },
+                { id: 'CRIM_017', text: 'O processo está em fase de inquérito?', weight: 0.78, category: 'phase' },
+                { id: 'CRIM_018', text: 'Houve dedução de acusação?', weight: 0.82, category: 'phase' },
+                { id: 'CRIM_019', text: 'O MP deduziu acusação?', weight: 0.80, category: 'phase' },
+                { id: 'CRIM_020', text: 'O arguido apresentou contestação?', weight: 0.75, category: 'phase' },
+                { id: 'CRIM_021', text: 'Houve instrução?', weight: 0.70, category: 'phase' },
+                { id: 'CRIM_022', text: 'O processo foi a julgamento?', weight: 0.78, category: 'phase' },
+                { id: 'CRIM_023', text: 'Houve recurso?', weight: 0.72, category: 'appeal' },
+                { id: 'CRIM_024', text: 'O crime é público, semi-público ou particular?', weight: 0.75, category: 'nature' },
+                { id: 'CRIM_025', text: 'Houve queixa apresentada?', weight: 0.80, category: 'complaint' },
+                { id: 'CRIM_026', text: 'O ofendido constituiu assistente?', weight: 0.72, category: 'victim' },
+                { id: 'CRIM_027', text: 'Houve pedido de indemnização civil?', weight: 0.70, category: 'damages' },
+                { id: 'CRIM_028', text: 'O arguido tem meios económicos?', weight: 0.68, category: 'profile' },
+                { id: 'CRIM_029', text: 'Houve apreensão de bens?', weight: 0.75, category: 'assets' },
+                { id: 'CRIM_030', text: 'Existem bens a perder a favor do Estado?', weight: 0.72, category: 'assets' },
+                { id: 'CRIM_031', text: 'O arguido é reincidente?', weight: 0.80, category: 'history' },
+                { id: 'CRIM_032', text: 'O crime é de menor gravidade?', weight: 0.78, category: 'severity' },
+                { id: 'CRIM_033', text: 'O arguido mostrou arrependimento?', weight: 0.75, category: 'conduct' },
+                { id: 'CRIM_034', text: 'Houve reparação do dano?', weight: 0.82, category: 'conduct' },
+                { id: 'CRIM_035', text: 'O arguido colaborou com a justiça?', weight: 0.80, category: 'conduct' },
+                { id: 'CRIM_036', text: 'Existem atenuantes?', weight: 0.85, category: 'circumstances' },
+                { id: 'CRIM_037', text: 'Existem agravantes?', weight: 0.88, category: 'circumstances' },
+                { id: 'CRIM_038', text: 'O crime foi cometido em grupo?', weight: 0.78, category: 'circumstances' },
+                { id: 'CRIM_039', text: 'Houve uso de arma?', weight: 0.75, category: 'circumstances' },
+                { id: 'CRIM_040', text: 'A vítima é especialmente vulnerável?', weight: 0.80, category: 'victim' },
+                { id: 'CRIM_041', text: 'O arguido tinha relação com a vítima?', weight: 0.72, category: 'relationship' },
+                { id: 'CRIM_042', text: 'Houve violência doméstica?', weight: 0.85, category: 'type' },
+                { id: 'CRIM_043', text: 'O crime foi cometido por funcionário público?', weight: 0.78, category: 'perpetrator' },
+                { id: 'CRIM_044', text: 'O arguido foi detido em flagrante?', weight: 0.75, category: 'arrest' },
+                { id: 'CRIM_045', text: 'Houve busca e apreensão?', weight: 0.80, category: 'procedure' },
+                { id: 'CRIM_046', text: 'As escutas telefónicas foram autorizadas?', weight: 0.85, category: 'evidence' },
+                { id: 'CRIM_047', text: 'Existem provas obtidas ilegalmente?', weight: 0.90, category: 'evidence' },
+                { id: 'CRIM_048', text: 'O arguido está representado por defensor?', weight: 0.82, category: 'defense' },
+                { id: 'CRIM_049', text: 'O arguido teve apoio judiciário?', weight: 0.70, category: 'defense' },
+                { id: 'CRIM_050', text: 'O processo ultrapassou os prazos legais?', weight: 0.75, category: 'timing' }
+            ]
+        },
+        family: {
+            name: 'Direito da Família',
+            icon: 'fa-heart',
+            questions: [
+                { id: 'FAM_001', text: 'Qual a data do casamento?', weight: 0.85, category: 'timing' },
+                { id: 'FAM_002', text: 'Qual o regime de bens do casamento?', weight: 0.90, category: 'property' },
+                { id: 'FAM_003', text: 'Existem filhos menores?', weight: 0.92, category: 'children' },
+                { id: 'FAM_004', text: 'Quantos filhos? Quais as idades?', weight: 0.88, category: 'children' },
+                { id: 'FAM_005', text: 'O casal vive em união de facto?', weight: 0.80, category: 'relationship' },
+                { id: 'FAM_006', text: 'Há quanto tempo vivem juntos?', weight: 0.82, category: 'timing' },
+                { id: 'FAM_007', text: 'Existe acordo de regulação das responsabilidades parentais?', weight: 0.85, category: 'children' },
+                { id: 'FAM_008', text: 'As crianças estão bem adaptadas?', weight: 0.78, category: 'children' },
+                { id: 'FAM_009', text: 'Qual a situação escolar dos filhos?', weight: 0.75, category: 'children' },
+                { id: 'FAM_010', text: 'Existem problemas de saúde dos filhos?', weight: 0.80, category: 'children' },
+                { id: 'FAM_011', text: 'O progenitor incumpre obrigações?', weight: 0.88, category: 'conduct' },
+                { id: 'FAM_012', text: 'A pensão de alimentos está definida?', weight: 0.85, category: 'support' },
+                { id: 'FAM_013', text: 'A pensão é paga regularmente?', weight: 0.82, category: 'support' },
+                { id: 'FAM_014', text: 'Existem incumprimentos de pensão?', weight: 0.80, category: 'support' },
+                { id: 'FAM_015', text: 'Houve violência doméstica?', weight: 0.90, category: 'violence' },
+                { id: 'FAM_016', text: 'Existem queixas na CPCJ?', weight: 0.85, category: 'violence' },
+                { id: 'FAM_017', text: 'Houve interdição de contactos?', weight: 0.78, category: 'children' },
+                { id: 'FAM_018', text: 'O regime de visitas está definido?', weight: 0.82, category: 'children' },
+                { id: 'FAM_019', text: 'Existem bens comuns do casal?', weight: 0.88, category: 'property' },
+                { id: 'FAM_020', text: 'Qual o valor dos bens comuns?', weight: 0.85, category: 'property' },
+                { id: 'FAM_021', text: 'Existem bens próprios de cada cônjuge?', weight: 0.80, category: 'property' },
+                { id: 'FAM_022', text: 'Existem dívidas comuns?', weight: 0.82, category: 'property' },
+                { id: 'FAM_023', text: 'A casa de morada de família é própria ou arrendada?', weight: 0.85, category: 'property' },
+                { id: 'FAM_024', text: 'Quem ficará com a casa?', weight: 0.88, category: 'property' },
+                { id: 'FAM_025', text: 'Existem contas bancárias conjuntas?', weight: 0.78, category: 'property' },
+                { id: 'FAM_026', text: 'Existem seguros de vida?', weight: 0.75, category: 'property' },
+                { id: 'FAM_027', text: 'Existem planos de poupança-reforma?', weight: 0.72, category: 'property' },
+                { id: 'FAM_028', text: 'O divórcio é por mútuo consentimento?', weight: 0.85, category: 'divorce' },
+                { id: 'FAM_029', text: 'O divórcio é litigioso?', weight: 0.88, category: 'divorce' },
+                { id: 'FAM_030', text: 'Qual a causa do divórcio?', weight: 0.82, category: 'divorce' },
+                { id: 'FAM_031', text: 'Houve cessação da coabitação?', weight: 0.80, category: 'divorce' },
+                { id: 'FAM_032', text: 'Data da separação de facto?', weight: 0.78, category: 'timing' },
+                { id: 'FAM_033', text: 'Existem testemunhas da separação?', weight: 0.75, category: 'evidence' },
+                { id: 'FAM_034', text: 'O cônjuge pede alimentos?', weight: 0.85, category: 'support' },
+                { id: 'FAM_035', text: 'O cônjuge tem capacidade para trabalhar?', weight: 0.80, category: 'support' },
+                { id: 'FAM_036', text: 'Existem necessidades especiais?', weight: 0.78, category: 'support' },
+                { id: 'FAM_037', text: 'O cônjuge contribuiu para a economia familiar?', weight: 0.82, category: 'support' },
+                { id: 'FAM_038', text: 'Existem testamentos?', weight: 0.70, category: 'succession' },
+                { id: 'FAM_039', text: 'Existem herdeiros legitimários?', weight: 0.75, category: 'succession' },
+                { id: 'FAM_040', text: 'Houve partilha de herança?', weight: 0.72, category: 'succession' },
+                { id: 'FAM_041', text: 'Existem doações em vida?', weight: 0.78, category: 'property' },
+                { id: 'FAM_042', text: 'As doações são colacionáveis?', weight: 0.75, category: 'property' },
+                { id: 'FAM_043', text: 'Existem contratos antenupciais?', weight: 0.70, category: 'contract' },
+                { id: 'FAM_044', text: 'Os pais são casados?', weight: 0.85, category: 'relationship' },
+                { id: 'FAM_045', text: 'A paternidade está estabelecida?', weight: 0.88, category: 'parentage' },
+                { id: 'FAM_046', text: 'Houve exame de ADN?', weight: 0.80, category: 'evidence' },
+                { id: 'FAM_047', text: 'O filho foi adotado?', weight: 0.75, category: 'parentage' },
+                { id: 'FAM_048', text: 'A adoção é plena ou restrita?', weight: 0.72, category: 'parentage' },
+                { id: 'FAM_049', text: 'Existe processo de regulação de responsabilidades?', weight: 0.85, category: 'procedure' },
+                { id: 'FAM_050', text: 'Foi realizada mediação familiar?', weight: 0.78, category: 'procedure' }
+            ]
+        }
+    };
+    
+    // =========================================================================
     // MOCK DATA (EXPANDIDO PARA DEMONSTRAÇÃO - 127 casos para 60 advogados)
     // =========================================================================
     
@@ -314,8 +713,66 @@
         { id: 'LAB001', client: 'Maria Rodrigues', nif_devedor: '654321987', category: 'labor', categoryName: 'Direito do Trabalho', value: 28900, successProbability: 0.85, status: 'active', court: 'Porto', startDate: '2024-01-15', hoursSpent: 85, resourceLevel: 'junior', evidence: ['Contrato de trabalho', 'Recibos de vencimento'], adversary: 'Garrigues', judge: 'Dra. Sofia Mendes', riskLevel: 'normal', hasDocumentaryEvidence: true, hasDigitalEvidence: false },
         { id: 'CIV001', client: 'António Almeida', nif_devedor: '147258369', category: 'civil', categoryName: 'Direito Civil', value: 125000, successProbability: 0.78, status: 'active', court: 'Coimbra', startDate: '2023-11-01', hoursSpent: 120, resourceLevel: 'associate', evidence: ['Contrato promessa compra e venda'], adversary: 'Abreu', judge: 'Dr. Rui Silva', riskLevel: 'normal', hasDocumentaryEvidence: true, hasDigitalEvidence: false },
         { id: 'FAM001', client: 'Carla Mendes', nif_devedor: '369258147', category: 'family', categoryName: 'Direito da Família', value: 45000, successProbability: 0.72, status: 'active', court: 'Lisboa', startDate: '2024-02-01', hoursSpent: 65, resourceLevel: 'junior', evidence: ['Acordo de regulação parental'], adversary: 'Morais Leitão', judge: 'Dra. Teresa Lopes', riskLevel: 'normal', hasDocumentaryEvidence: true, hasDigitalEvidence: false },
-        { id: 'CRIM001', client: 'João Santos', nif_devedor: '741852963', category: 'criminal', categoryName: 'Direito Penal', value: 0, successProbability: 0.65, status: 'active', court: 'Braga', startDate: '2024-03-10', hoursSpent: 95, resourceLevel: 'senior', evidence: ['Arguido', 'Prova testemunhal'], adversary: 'MP', judge: 'Dr. Ricardo Alves', riskLevel: 'elevado', hasDocumentaryEvidence: false, hasDigitalEvidence: true }
+        { id: 'CRIM001', client: 'João Santos', nif_devedor: '741852963', category: 'criminal', categoryName: 'Direito Penal', value: 0, successProbability: 0.65, status: 'active', court: 'Braga', startDate: '2024-03-10', hoursSpent: 95, resourceLevel: 'senior', evidence: ['Arguido', 'Prova testemunhal'], adversary: 'MP', judge: 'Dr. Ricardo Alves', riskLevel: 'elevado', hasDocumentaryEvidence: false, hasDigitalEvidence: true },
+        { id: 'COM001', client: 'Tech Solutions, Lda', nif_devedor: '951753852', category: 'commercial', categoryName: 'Direito Comercial', value: 750000, successProbability: 0.75, status: 'active', court: 'Lisboa', startDate: '2024-04-01', hoursSpent: 150, resourceLevel: 'senior', evidence: ['Contrato social', 'Atas de assembleia'], adversary: 'PLMJ', judge: 'Dr. António Costa', riskLevel: 'normal', hasDocumentaryEvidence: true, hasDigitalEvidence: false }
     ];
+    
+    // =========================================================================
+    // FUNÇÃO DE SELEÇÃO INTELIGENTE DAS 6 MELHORES PERGUNTAS
+    // =========================================================================
+    
+    function selectBestQuestions(caseData) {
+        const category = caseData.category;
+        const questionBank = STRATEGIC_QUESTIONS[category];
+        
+        if (!questionBank) {
+            return { questions: [], categoryName: 'Geral', icon: 'fa-question-circle' };
+        }
+        
+        let questions = [...questionBank.questions];
+        
+        // Calcular score de relevância para cada pergunta com base no caso
+        const scoredQuestions = questions.map(q => {
+            let relevanceScore = q.weight;
+            
+            // Ajustar com base nos dados do caso
+            if (caseData.fase_processual && q.category === 'procedure') {
+                relevanceScore += 0.15;
+            }
+            if (caseData.evidence && q.category === 'evidence') {
+                relevanceScore += 0.20;
+            }
+            if (caseData.value && caseData.value > 1000000 && q.category === 'value') {
+                relevanceScore += 0.10;
+            }
+            if (caseData.judge && q.category === 'profile') {
+                relevanceScore += 0.05;
+            }
+            if (caseData.riskLevel === 'critical' && q.category === 'conduct') {
+                relevanceScore += 0.15;
+            }
+            if (caseData.hasDocumentaryEvidence && q.category === 'evidence') {
+                relevanceScore += 0.10;
+            }
+            if (caseData.hasDigitalEvidence && q.id.includes('DIG')) {
+                relevanceScore += 0.15;
+            }
+            
+            return { ...q, relevanceScore: Math.min(relevanceScore, 1.0) };
+        });
+        
+        // Ordenar por relevância e selecionar top 6
+        const topQuestions = scoredQuestions
+            .sort((a, b) => b.relevanceScore - a.relevanceScore)
+            .slice(0, 6);
+        
+        return {
+            questions: topQuestions,
+            categoryName: questionBank.name,
+            icon: questionBank.icon,
+            totalAvailable: questions.length
+        };
+    }
     
     // =========================================================================
     // VARIÁVEIS GLOBAIS
@@ -613,7 +1070,8 @@
             { id: 'labor', name: t('filter_labor') },
             { id: 'civil', name: t('filter_civil') },
             { id: 'family', name: t('filter_family') },
-            { id: 'criminal', name: t('filter_criminal') }
+            { id: 'criminal', name: t('filter_criminal') },
+            { id: 'commercial', name: t('filter_commercial') }
         ];
         
         container.innerHTML = `
@@ -672,6 +1130,7 @@
                             <div class="detail-row"><span>Fase Processual:</span><strong>${caseData.fase_processual || 'Em análise'}</strong></div>
                             <div class="detail-row"><span>Evidências:</span><strong>${caseData.evidence?.join(', ') || 'Nenhuma registada'}</strong></div>
                             <div class="detail-actions" style="margin-top: 20px;">
+                                <button id="generateQuestionsBtn" class="elite-btn primary" data-id="${caseData.id}"><i class="fas fa-question-circle"></i> GERAR QUESTIONÁRIO ESTRATÉGICO</button>
                                 <button id="deleteCaseFromModal" class="elite-btn danger" data-id="${caseData.id}"><i class="fas fa-trash"></i> ELIMINAR PROCESSO</button>
                                 <button id="sealCaseResultBtn" class="elite-btn secondary" data-id="${caseData.id}"><i class="fas fa-link"></i> SELAR RESULTADO</button>
                             </div>
@@ -691,6 +1150,10 @@
                                 window.ValueEfficiencyEngine.sealCaseResult(caseData, outcome);
                                 EliteUtils.showToast(`Resultado do caso ${caseData.id} selado com hash imutável.`, 'success');
                             }
+                        });
+                        
+                        document.getElementById('generateQuestionsBtn')?.addEventListener('click', () => {
+                            showStrategicQuestionsModal(caseData);
                         });
                     }
                     document.getElementById('caseDetailModal').style.display = 'flex';
@@ -730,6 +1193,150 @@
         document.getElementById('newCaseBtn')?.addEventListener('click', () => {
             showNewCaseModal();
         });
+    }
+    
+    function showStrategicQuestionsModal(caseData) {
+        const modalBody = document.getElementById('aiPredictionBody');
+        if (!modalBody) return;
+        
+        const selectedQuestions = selectBestQuestions(caseData);
+        
+        modalBody.innerHTML = `
+            <div class="strategic-questions-modal">
+                <div class="modal-header-info">
+                    <h3><i class="fas ${selectedQuestions.icon}"></i> QUESTIONÁRIO ESTRATÉGICO</h3>
+                    <p>Área: <strong>${selectedQuestions.categoryName}</strong> | ${selectedQuestions.totalAvailable} perguntas na base | <strong>6 perguntas selecionadas</strong> para este caso</p>
+                    <p class="case-ref">Caso: ${caseData.id} - ${caseData.client} | Juiz: ${caseData.judge || 'A designar'}</p>
+                </div>
+                
+                <div class="questions-container">
+                    <div class="questions-header">
+                        <i class="fas fa-gavel"></i> PERGUNTAS CIRÚRGICAS PARA A PARTE CONTRÁRIA
+                        <small>Baseadas na análise do caso e perfil do magistrado</small>
+                    </div>
+                    <div class="questions-list">
+                        ${selectedQuestions.questions.map((q, idx) => `
+                            <div class="question-card" data-id="${q.id}">
+                                <div class="question-number">${idx + 1}</div>
+                                <div class="question-content">
+                                    <div class="question-text">${q.text}</div>
+                                    <div class="question-meta">
+                                        <span class="question-category">${q.category.toUpperCase()}</span>
+                                        <span class="question-relevance">Relevância: ${(q.relevanceScore * 100).toFixed(0)}%</span>
+                                    </div>
+                                </div>
+                                <button class="copy-question-btn" data-question="${q.text.replace(/"/g, '&quot;')}">
+                                    <i class="fas fa-copy"></i>
+                                </button>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+                
+                <div class="questions-footer">
+                    <button id="copyAllQuestionsBtn" class="elite-btn primary">
+                        <i class="fas fa-copy"></i> COPIAR TODAS AS PERGUNTAS
+                    </button>
+                    <button id="exportQuestionsBtn" class="elite-btn secondary">
+                        <i class="fas fa-download"></i> EXPORTAR PARA PDF
+                    </button>
+                    <button class="modal-close-btn elite-btn secondary">FECHAR</button>
+                </div>
+            </div>
+        `;
+        
+        // Estilos específicos do modal
+        const style = document.createElement('style');
+        style.textContent = `
+            .strategic-questions-modal { padding: 0; }
+            .modal-header-info { margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--border-tactic); }
+            .modal-header-info h3 { color: var(--elite-primary); margin-bottom: 8px; }
+            .modal-header-info p { font-size: 0.75rem; color: #94a3b8; margin: 4px 0; }
+            .modal-header-info .case-ref { color: var(--elite-primary); font-family: monospace; }
+            .questions-header { background: var(--bg-command); padding: 12px 16px; border-radius: 12px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; font-weight: bold; }
+            .questions-header small { font-size: 0.65rem; color: #94a3b8; font-weight: normal; }
+            .questions-list { display: flex; flex-direction: column; gap: 12px; max-height: 500px; overflow-y: auto; padding-right: 8px; }
+            .question-card { background: var(--bg-terminal); border-radius: 12px; padding: 16px; display: flex; gap: 16px; align-items: flex-start; border-left: 3px solid var(--elite-primary); transition: all 0.2s; }
+            .question-card:hover { transform: translateX(4px); border-left-color: var(--elite-success); }
+            .question-number { width: 32px; height: 32px; background: var(--elite-primary-dim); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; color: var(--elite-primary); flex-shrink: 0; }
+            .question-content { flex: 1; }
+            .question-text { font-size: 0.85rem; line-height: 1.4; margin-bottom: 8px; font-weight: 500; }
+            .question-meta { display: flex; gap: 12px; font-size: 0.6rem; }
+            .question-category { background: rgba(0, 229, 255, 0.1); padding: 2px 8px; border-radius: 12px; color: var(--elite-primary); }
+            .question-relevance { color: #94a3b8; }
+            .copy-question-btn { background: rgba(255,255,255,0.05); border: none; padding: 8px; border-radius: 8px; cursor: pointer; color: #94a3b8; transition: all 0.2s; }
+            .copy-question-btn:hover { background: var(--elite-primary-dim); color: var(--elite-primary); }
+            .questions-footer { margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border-tactic); display: flex; gap: 12px; justify-content: flex-end; flex-wrap: wrap; }
+            .modal-close-btn { background: transparent; border: 1px solid var(--border-tactic); }
+            @media (max-width: 768px) {
+                .question-card { flex-wrap: wrap; }
+                .question-number { width: 28px; height: 28px; font-size: 0.7rem; }
+                .question-text { font-size: 0.75rem; }
+            }
+        `;
+        modalBody.appendChild(style);
+        
+        // Event listeners
+        document.querySelectorAll('.copy-question-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const question = btn.dataset.question;
+                navigator.clipboard.writeText(question);
+                EliteUtils.showToast('Pergunta copiada para área de transferência', 'success');
+                btn.innerHTML = '<i class="fas fa-check"></i>';
+                setTimeout(() => {
+                    btn.innerHTML = '<i class="fas fa-copy"></i>';
+                }, 1500);
+            });
+        });
+        
+        document.getElementById('copyAllQuestionsBtn')?.addEventListener('click', () => {
+            const allQuestions = selectedQuestions.questions.map((q, i) => `${i + 1}. ${q.text}`).join('\n\n');
+            navigator.clipboard.writeText(allQuestions);
+            EliteUtils.showToast('Todas as perguntas copiadas', 'success');
+        });
+        
+        document.getElementById('exportQuestionsBtn')?.addEventListener('click', () => {
+            const htmlContent = `
+                <html>
+                <head><meta charset="UTF-8"><title>Questionário Estratégico - ${caseData.id}</title>
+                <style>
+                    body { font-family: 'JetBrains Mono', monospace; padding: 40px; background: white; }
+                    h1 { color: #00e5ff; }
+                    .question { margin: 20px 0; padding: 15px; border-left: 3px solid #00e5ff; }
+                    .meta { font-size: 12px; color: #666; margin-top: 8px; }
+                </style>
+                </head>
+                <body>
+                    <h1>ELITE PROBATUM - Questionário Estratégico</h1>
+                    <p><strong>Caso:</strong> ${caseData.id} - ${caseData.client}</p>
+                    <p><strong>Área:</strong> ${selectedQuestions.categoryName}</p>
+                    <p><strong>Juiz:</strong> ${caseData.judge || 'A designar'}</p>
+                    <hr>
+                    ${selectedQuestions.questions.map((q, i) => `
+                        <div class="question">
+                            <strong>${i + 1}. ${q.text}</strong>
+                            <div class="meta">Categoria: ${q.category.toUpperCase()} | Relevância: ${(q.relevanceScore * 100).toFixed(0)}%</div>
+                        </div>
+                    `).join('')}
+                    <hr>
+                    <small>Documento gerado por ELITE PROBATUM v2.0.5 • Unidade de Comando Estratégico</small>
+                </body>
+                </html>
+            `;
+            const blob = new Blob([htmlContent], { type: 'text/html' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `questionario_${caseData.id}.html`;
+            link.click();
+            URL.revokeObjectURL(link.href);
+            EliteUtils.showToast('Questionário exportado', 'success');
+        });
+        
+        document.querySelector('.modal-close-btn')?.addEventListener('click', () => {
+            document.getElementById('aiPredictionModal').style.display = 'none';
+        });
+        
+        document.getElementById('aiPredictionModal').style.display = 'flex';
     }
     
     function showNewCaseModal() {
@@ -853,7 +1460,7 @@
     }
     
     // =========================================================================
-    // RENDERIZAÇÃO DO PAINEL DE VALOR (GAIN SHARE)
+    // RENDERIZAÇÃO DO PAINEL DE VALOR (GAIN SHARE - SEM FATURAÇÃO)
     // =========================================================================
     
     function renderValueDashboard() {
@@ -865,6 +1472,155 @@
         } else {
             container.innerHTML = '<div class="alert-item info"><i class="fas fa-chart-line"></i><div><strong>Geração de Valor</strong><p>Módulo Gain Share Agreement em inicialização...</p></div></div>';
         }
+    }
+    
+    // =========================================================================
+    // RENDERIZAÇÃO DO QUESTIONÁRIO ESTRATÉGICO (VIEW PRINCIPAL)
+    // =========================================================================
+    
+    function renderQuestionnaire() {
+        const container = document.getElementById('viewContainer');
+        if (!container) return;
+        
+        container.innerHTML = `
+            <div class="questionnaire-dashboard">
+                <div class="dashboard-header">
+                    <h2><i class="fas fa-question-circle"></i> QUESTIONÁRIOS ESTRATÉGICOS</h2>
+                    <p class="header-description">Selecione um processo para gerar as 6 perguntas cirúrgicas mais relevantes para a parte contrária</p>
+                </div>
+                
+                <div class="cases-selector">
+                    <h3><i class="fas fa-folder-open"></i> PROCESSOS ATIVOS</h3>
+                    <div class="cases-grid-selector">
+                        ${MOCK_CASES.filter(c => c.status === 'active').map(c => `
+                            <div class="case-selector-card" data-case-id="${c.id}">
+                                <div class="case-selector-header">
+                                    <strong>${c.id}</strong>
+                                    <span class="case-badge ${c.category}">${c.categoryName}</span>
+                                </div>
+                                <div class="case-selector-info">
+                                    <div><i class="fas fa-user"></i> ${c.client}</div>
+                                    <div><i class="fas fa-gavel"></i> ${c.court}</div>
+                                    <div><i class="fas fa-chart-line"></i> Prob: ${EliteUtils.formatPercentage(c.successProbability * 100)}</div>
+                                </div>
+                                <button class="generate-questions-btn elite-btn secondary" data-case='${JSON.stringify(c).replace(/'/g, "&apos;")}'>
+                                    <i class="fas fa-magic"></i> GERAR QUESTIONÁRIO
+                                </button>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+                
+                <div id="questionsResult" class="questions-result" style="display: none;">
+                    <h3><i class="fas fa-list"></i> QUESTIONÁRIO ESTRATÉGICO</h3>
+                    <div id="questionsResultContent"></div>
+                </div>
+            </div>
+            <style>
+                .questionnaire-dashboard { padding: 0; }
+                .header-description { color: #94a3b8; font-size: 0.75rem; margin-top: 8px; }
+                .cases-grid-selector { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; margin: 20px 0; }
+                .case-selector-card { background: var(--bg-command); border-radius: 16px; padding: 20px; border: 1px solid var(--border-tactic); transition: all 0.2s; }
+                .case-selector-card:hover { border-color: var(--elite-primary); transform: translateY(-2px); }
+                .case-selector-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+                .case-selector-info { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 0.7rem; color: #94a3b8; margin-bottom: 16px; }
+                .generate-questions-btn { width: 100%; }
+                .questions-result { margin-top: 32px; padding-top: 24px; border-top: 1px solid var(--border-tactic); }
+                .questions-result h3 { color: var(--elite-primary); margin-bottom: 16px; }
+                @media (max-width: 768px) {
+                    .cases-grid-selector { grid-template-columns: 1fr; }
+                }
+            </style>
+        `;
+        
+        document.querySelectorAll('.generate-questions-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const caseData = JSON.parse(btn.dataset.case.replace(/&apos;/g, "'"));
+                const selectedQuestions = selectBestQuestions(caseData);
+                const resultDiv = document.getElementById('questionsResult');
+                const contentDiv = document.getElementById('questionsResultContent');
+                
+                if (resultDiv && contentDiv) {
+                    contentDiv.innerHTML = `
+                        <div class="strategic-questions-preview">
+                            <div class="preview-header">
+                                <div><strong>${caseData.id}</strong> - ${caseData.client}</div>
+                                <div class="preview-badge">${selectedQuestions.categoryName}</div>
+                            </div>
+                            <div class="questions-list-preview">
+                                ${selectedQuestions.questions.map((q, idx) => `
+                                    <div class="preview-question">
+                                        <div class="preview-number">${idx + 1}</div>
+                                        <div class="preview-text">${q.text}</div>
+                                        <button class="copy-single-btn elite-btn small" data-question="${q.text.replace(/"/g, '&quot;')}">
+                                            <i class="fas fa-copy"></i>
+                                        </button>
+                                    </div>
+                                `).join('')}
+                            </div>
+                            <div class="preview-footer">
+                                <button id="copyAllPreviewBtn" class="elite-btn primary"><i class="fas fa-copy"></i> COPIAR TODAS</button>
+                                <button id="exportPreviewBtn" class="elite-btn secondary"><i class="fas fa-download"></i> EXPORTAR</button>
+                            </div>
+                        </div>
+                        <style>
+                            .strategic-questions-preview { background: var(--bg-terminal); border-radius: 16px; padding: 20px; }
+                            .preview-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 12px; border-bottom: 1px solid var(--border-tactic); flex-wrap: wrap; gap: 12px; }
+                            .preview-badge { background: var(--elite-primary-dim); padding: 4px 12px; border-radius: 20px; font-size: 0.7rem; color: var(--elite-primary); }
+                            .questions-list-preview { display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px; }
+                            .preview-question { display: flex; align-items: flex-start; gap: 12px; padding: 12px; background: var(--bg-command); border-radius: 12px; border-left: 3px solid var(--elite-primary); }
+                            .preview-number { width: 28px; height: 28px; background: var(--elite-primary-dim); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: bold; flex-shrink: 0; }
+                            .preview-text { flex: 1; font-size: 0.8rem; line-height: 1.4; }
+                            .copy-single-btn { background: transparent; border: 1px solid var(--border-tactic); padding: 4px 8px; }
+                            .preview-footer { display: flex; gap: 12px; justify-content: flex-end; flex-wrap: wrap; }
+                        </style>
+                    `;
+                    
+                    resultDiv.style.display = 'block';
+                    
+                    document.querySelectorAll('.copy-single-btn').forEach(btn => {
+                        btn.addEventListener('click', () => {
+                            const question = btn.dataset.question;
+                            navigator.clipboard.writeText(question);
+                            EliteUtils.showToast('Pergunta copiada', 'success');
+                            btn.innerHTML = '<i class="fas fa-check"></i>';
+                            setTimeout(() => btn.innerHTML = '<i class="fas fa-copy"></i>', 1500);
+                        });
+                    });
+                    
+                    document.getElementById('copyAllPreviewBtn')?.addEventListener('click', () => {
+                        const allQuestions = selectedQuestions.questions.map((q, i) => `${i + 1}. ${q.text}`).join('\n\n');
+                        navigator.clipboard.writeText(allQuestions);
+                        EliteUtils.showToast('Todas as perguntas copiadas', 'success');
+                    });
+                    
+                    document.getElementById('exportPreviewBtn')?.addEventListener('click', () => {
+                        const htmlContent = `
+                            <html>
+                            <head><meta charset="UTF-8"><title>Questionário Estratégico - ${caseData.id}</title>
+                            <style>body{font-family: monospace; padding: 40px;} .q{margin:20px 0; padding:15px; border-left:3px solid #00e5ff;}</style>
+                            </head>
+                            <body>
+                                <h1>ELITE PROBATUM - Questionário Estratégico</h1>
+                                <p><strong>Caso:</strong> ${caseData.id} - ${caseData.client}</p>
+                                <p><strong>Área:</strong> ${selectedQuestions.categoryName}</p>
+                                <hr>
+                                ${selectedQuestions.questions.map((q, i) => `<div class="q"><strong>${i+1}. ${q.text}</strong></div>`).join('')}
+                                <hr><small>ELITE PROBATUM v2.0.5</small>
+                            </body>
+                            </html>
+                        `;
+                        const blob = new Blob([htmlContent], { type: 'text/html' });
+                        const link = document.createElement('a');
+                        link.href = URL.createObjectURL(blob);
+                        link.download = `questionario_${caseData.id}.html`;
+                        link.click();
+                        URL.revokeObjectURL(link.href);
+                        EliteUtils.showToast('Questionário exportado', 'success');
+                    });
+                }
+            });
+        });
     }
     
     // =========================================================================
@@ -955,7 +1711,7 @@
     }
     
     // =========================================================================
-    // FUNÇÕES DE RENDERIZAÇÃO DAS DEMAIS VIEWS (resumidas para brevidade)
+    // FUNÇÕES DE RENDERIZAÇÃO DAS DEMAIS VIEWS
     // =========================================================================
     
     function renderInsolvency() { 
@@ -980,7 +1736,7 @@
                                 <td>${EliteUtils.formatCurrency(c.value)} </div>
                                 <td><div class="progress-bar"><div class="progress-fill" style="width: ${c.successProbability * 100}%"></div><span class="progress-text">${EliteUtils.formatPercentage(c.successProbability * 100)}</span></div> </div>
                                 <td>${c.fase_processual || 'Em curso'} </div>
-                                <td><button class="action-btn delete-case" data-id="${c.id}"><i class="fas fa-trash"></i></button> </div>
+                                <td><button class="action-btn view-case" data-id="${c.id}"><i class="fas fa-eye"></i></button><button class="action-btn delete-case" data-id="${c.id}"><i class="fas fa-trash"></i></button> </div>
                              </div>
                         `).join('')}
                         ${insolvencyCases.length === 0 ? '专业<td colspan="6" class="empty-state">Nenhum processo de insolvência</div>' : ''}
@@ -988,6 +1744,7 @@
                  </div>
             `;
             attachDeleteEvents();
+            attachViewEvents();
             document.getElementById('newInsolvencyBtn')?.addEventListener('click', showNewCaseModal);
         } 
     }
@@ -1012,13 +1769,14 @@
                              <td>${EliteUtils.formatCurrency(c.value)} </div>
                              <td><div class="progress-bar"><div class="progress-fill" style="width: ${c.successProbability * 100}%"></div><span class="progress-text">${EliteUtils.formatPercentage(c.successProbability * 100)}</span></div> </div>
                              <td>${c.judge || 'N/A'} </div>
-                             <td><button class="action-btn delete-case" data-id="${c.id}"><i class="fas fa-trash"></i></button> </div>
+                             <td><button class="action-btn view-case" data-id="${c.id}"><i class="fas fa-eye"></i></button><button class="action-btn delete-case" data-id="${c.id}"><i class="fas fa-trash"></i></button> </div>
                         `).join('')}
                         ${laborCases.length === 0 ? '专业<td colspan="6" class="empty-state">Nenhum processo laboral</div>' : ''}
                     </tbody>
                  </div>
             `;
             attachDeleteEvents();
+            attachViewEvents();
             document.getElementById('newLaborBtn')?.addEventListener('click', showNewCaseModal);
         }
     }
@@ -1044,11 +1802,6 @@
                 document.getElementById('litigationPredictionPanel').innerHTML = '<div class="loading-shimmer" style="height: 200px;"></div>';
             }
         }
-    }
-    
-    function renderQuestionnaire() { 
-        const container = document.getElementById('viewContainer'); 
-        if (container) container.innerHTML = `<h2>${t('nav_questionnaire')}</h2><div class="alert-item info"><i class="fas fa-info-circle"></i><div><strong>Questionários Estratégicos</strong><p>Em desenvolvimento. Em breve disponível para todas as áreas do direito.</p></div></div>`; 
     }
     
     function renderEvidence() { 
@@ -1152,6 +1905,47 @@
                 if (confirm(t('confirm_delete'))) {
                     const hash = generateDeleteConfirmationHash(caseId);
                     deleteCase(caseId, hash);
+                }
+            });
+        });
+    }
+    
+    function attachViewEvents() {
+        document.querySelectorAll('.view-case').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const caseId = btn.dataset.id;
+                const caseData = MOCK_CASES.find(c => c.id === caseId);
+                if (caseData) {
+                    const modalBody = document.getElementById('caseDetailBody');
+                    if (modalBody) {
+                        modalBody.innerHTML = `
+                            <div class="detail-row"><span>Processo:</span><strong>${caseData.id}</strong></div>
+                            <div class="detail-row"><span>Cliente:</span><strong>${caseData.client}</strong></div>
+                            <div class="detail-row"><span>Valor:</span><strong>${EliteUtils.formatCurrency(caseData.value)}</strong></div>
+                            <div class="detail-row"><span>Probabilidade IA:</span><strong>${EliteUtils.formatPercentage(caseData.successProbability * 100)}</strong></div>
+                            <div class="detail-row"><span>Tribunal:</span><strong>${caseData.court}</strong></div>
+                            <div class="detail-row"><span>Juiz:</span><strong>${caseData.judge}</strong></div>
+                            <div class="detail-row"><span>Área:</span><strong>${caseData.categoryName}</strong></div>
+                            <div class="detail-row"><span>Fase Processual:</span><strong>${caseData.fase_processual || 'Em análise'}</strong></div>
+                            <div class="detail-actions" style="margin-top: 20px;">
+                                <button id="generateQuestionsFromDetail" class="elite-btn primary" data-case='${JSON.stringify(caseData).replace(/'/g, "&apos;")}'><i class="fas fa-question-circle"></i> GERAR QUESTIONÁRIO</button>
+                                <button id="deleteCaseFromModal" class="elite-btn danger" data-id="${caseData.id}"><i class="fas fa-trash"></i> ELIMINAR PROCESSO</button>
+                            </div>
+                        `;
+                        
+                        document.getElementById('deleteCaseFromModal')?.addEventListener('click', () => {
+                            if (confirm(t('confirm_delete'))) {
+                                const hash = generateDeleteConfirmationHash(caseData.id);
+                                deleteCase(caseData.id, hash);
+                                document.getElementById('caseDetailModal').style.display = 'none';
+                            }
+                        });
+                        
+                        document.getElementById('generateQuestionsFromDetail')?.addEventListener('click', () => {
+                            showStrategicQuestionsModal(caseData);
+                        });
+                    }
+                    document.getElementById('caseDetailModal').style.display = 'flex';
                 }
             });
         });
@@ -1372,6 +2166,8 @@
         utils: EliteUtils,
         mockCases: MOCK_CASES,
         currentView: currentView,
+        strategicQuestions: STRATEGIC_QUESTIONS,
+        selectBestQuestions: selectBestQuestions,
         
         initDashboard: function() {
             EliteUtils.log('========================================');
@@ -1472,6 +2268,7 @@
             EliteUtils.log(`🚀 Módulos de inovação estratégica ativos`);
             EliteUtils.log(`🎯 ARQUITETURA DE VERDADE: Shadow Dossier | Black Swan | Decomposição Estratégica`);
             EliteUtils.log(`💰 GAIN SHARE AGREEMENT: Alpha de ${((window.ValueEfficiencyEngine?.calculateAlpha?.().alphaPercentage) || '0')}% gerado`);
+            EliteUtils.log(`📋 QUESTIONÁRIOS ESTRATÉGICOS: ${Object.keys(STRATEGIC_QUESTIONS).length} áreas, 50 perguntas por área`);
         },
         
         navigateTo: navigateTo,
@@ -1482,10 +2279,12 @@
         setLocale: setLocale,
         t: t,
         getLocale: () => currentLocale,
-        getSecureStorage: () => secureStorage
+        getSecureStorage: () => secureStorage,
+        showStrategicQuestions: showStrategicQuestionsModal
     };
     
     window.EliteUtils = EliteUtils;
+    window.StrategicQuestions = STRATEGIC_QUESTIONS;
     
     EliteUtils.log(`========================================`);
     EliteUtils.log(`ELITE PROBATUM v${APP_VERSION}`);
@@ -1496,6 +2295,7 @@
     EliteUtils.log(`Valor total em disputa: ${EliteUtils.formatCurrency(MOCK_CASES.reduce((s,c)=>s+c.value,0))}`);
     EliteUtils.log(`🎯 Arquitetura de Verdade: Shadow Dossier | Black Swan | Decomposição Estratégica`);
     EliteUtils.log(`💰 Modelo Gain Share Agreement: Partilha de Sucesso sobre Alpha Gerado`);
+    EliteUtils.log(`📋 Questionários Estratégicos: 6 áreas, 50 perguntas cirúrgicas por área`);
     EliteUtils.log(`========================================`);
     
 })();
