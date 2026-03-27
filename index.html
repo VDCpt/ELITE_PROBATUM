@@ -51,6 +51,11 @@
                 <label data-i18n="login_password">PALAVRA-PASSE</label>
                 <input type="password" id="password" placeholder="••••••••" value="">
             </div>
+            <div class="form-group">
+                <label>TELEMÓVEL PARA AUTENTICAÇÃO 2FA</label>
+                <input type="tel" id="mobilePhone" placeholder="+351 912 345 678" value="">
+                <small style="color: #64748b; font-size: 0.6rem; display: block; margin-top: 4px;">O sistema enviará o código de verificação para este número</small>
+            </div>
             
             <div id="loginError" class="login-error" style="display: none;" data-i18n="login_error">ACESSO NEGADO — Credenciais inválidas</div>
             
@@ -76,7 +81,7 @@
         </div>
     </div>
     
-    <!-- MODAL DE PEDIDO DE ACESSO -->
+    <!-- MODAL DE PEDIDO DE ACESSO (com telemóvel) -->
     <div id="accessRequestModal" class="elite-modal" style="display: none;">
         <div class="modal-content">
             <div class="modal-header">
@@ -94,6 +99,10 @@
                         <input type="email" id="requestEmail" required>
                     </div>
                     <div class="form-group">
+                        <label>Telemóvel (para notificações) *</label>
+                        <input type="tel" id="requestPhone" placeholder="+351 912 345 678" required>
+                    </div>
+                    <div class="form-group">
                         <label>NIF / NIPC *</label>
                         <input type="text" id="requestNif" required>
                     </div>
@@ -109,6 +118,29 @@
                         <i class="fas fa-paper-plane"></i> ENVIAR PEDIDO
                     </button>
                 </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- MODAL DE AUTENTICAÇÃO 2FA -->
+    <div id="twoFactorModal" class="elite-modal" style="display: none;">
+        <div class="modal-content" style="max-width: 400px;">
+            <div class="modal-header">
+                <h3><i class="fas fa-mobile-alt"></i> AUTENTICAÇÃO DE DOIS FATORES</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p style="text-align: center; margin-bottom: 20px;">Enviamos um código de verificação para o seu telemóvel</p>
+                <div class="form-group">
+                    <label>Código de Verificação</label>
+                    <input type="text" id="twoFactorCode" placeholder="000000" maxlength="6" style="text-align: center; font-size: 1.2rem; letter-spacing: 4px;">
+                </div>
+                <button id="verifyTwoFactorBtn" class="elite-btn primary full-width">
+                    <i class="fas fa-check-circle"></i> VERIFICAR
+                </button>
+                <button id="resendCodeBtn" class="elite-btn secondary full-width" style="margin-top: 12px;">
+                    <i class="fas fa-redo"></i> REENVIAR CÓDIGO
+                </button>
             </div>
         </div>
     </div>
@@ -196,6 +228,10 @@
                     <i class="fas fa-chess-queen"></i>
                     <span>ARQUITETURA DE VERDADE</span>
                 </a>
+                <a href="#" class="nav-item" data-view="value_dashboard" data-i18n="nav_value_dashboard">
+                    <i class="fas fa-chart-line"></i>
+                    <span>GERAÇÃO DE VALOR</span>
+                </a>
                 <a href="#" class="nav-item" data-view="admin" data-i18n="nav_admin">
                     <i class="fas fa-skull"></i>
                     <span>ADMINISTRAÇÃO</span>
@@ -208,6 +244,7 @@
                     <div>
                         <strong id="userName">Dr. Administrador</strong>
                         <small id="userRole">Super Utilizador · Acesso Total</small>
+                        <small id="userPhone" style="font-size: 0.55rem; color: #00e5ff;"></small>
                     </div>
                 </div>
                 <button class="logout-btn" id="logoutBtn">
@@ -392,6 +429,10 @@
                         </select>
                     </div>
                     <div class="form-group">
+                        <label>Notificações por Telemóvel</label>
+                        <input type="checkbox" id="smsNotifications" checked> Receber alertas via SMS
+                    </div>
+                    <div class="form-group">
                         <label>Notificações por E-mail</label>
                         <input type="checkbox" id="emailNotifications" checked> Receber alertas por e-mail
                     </div>
@@ -404,7 +445,7 @@
     <div id="toastContainer" class="elite-toast-container"></div>
     
     <!-- ================================================================
-         SCRIPTS - ORDEM CORRIGIDA: MÓDULOS BASE PRIMEIRO, DEPOIS EXTENSÕES
+         SCRIPTS - ORDEM CORRIGIDA
     ================================================================ -->
     
     <!-- 1. MÓDULOS BASE (Core e Componentes) -->
@@ -412,7 +453,7 @@
     <script src="js_components_charts.js"></script>
     <script src="js_components_tables.js"></script>
     
-    <!-- 2. MÓDULOS DE NEGÓCIO (Base - Todos os existentes) -->
+    <!-- 2. MÓDULOS DE NEGÓCIO (Base) -->
     <script src="js_modules_ai-assistant.js"></script>
     <script src="js_modules_black-swan.js"></script>
     <script src="js_modules_blockchain-custody.js"></script>
@@ -430,14 +471,17 @@
     <script src="js_modules_risk-mitigation.js"></script>
     <script src="js_modules_shadow-dossier.js"></script>
     <script src="js_modules_strategic-vault.js"></script>
-    
-    <!-- 3. MÓDULOS DE NEGÓCIO (NOVOS - Gain Share e Value Efficiency) -->
     <script src="js_modules_value-efficiency.js"></script>
     
-    <!-- 4. SCRIPT DE INICIALIZAÇÃO (Integração dos novos módulos) -->
+    <!-- 3. SCRIPT DE INICIALIZAÇÃO COM 2FA -->
     <script>
         (function() {
             'use strict';
+            
+            // Variáveis de sessão
+            let pendingTwoFactor = false;
+            let twoFactorCode = null;
+            let userMobile = null;
             
             document.addEventListener('DOMContentLoaded', function() {
                 console.log('[ELITE PROBATUM] Unidade de Comando Estratégico — Inicializando v2.0.5');
@@ -448,6 +492,11 @@
                 const loginError = document.getElementById('loginError');
                 const usernameInput = document.getElementById('username');
                 const passwordInput = document.getElementById('password');
+                const mobileInput = document.getElementById('mobilePhone');
+                const twoFactorModal = document.getElementById('twoFactorModal');
+                const twoFactorCodeInput = document.getElementById('twoFactorCode');
+                const verifyTwoFactorBtn = document.getElementById('verifyTwoFactorBtn');
+                const resendCodeBtn = document.getElementById('resendCodeBtn');
                 
                 const langPTBtn = document.getElementById('langPT');
                 const langENBtn = document.getElementById('langEN');
@@ -472,64 +521,133 @@
                     return device;
                 }
                 
+                function generateTwoFactorCode() {
+                    return Math.floor(100000 + Math.random() * 900000).toString();
+                }
+                
+                function sendSMSCode(phoneNumber, code) {
+                    // Simulação de envio de SMS (em produção, integrar com API de SMS)
+                    console.log(`[2FA] Enviando código ${code} para ${phoneNumber}`);
+                    
+                    // Mostrar toast simulando envio
+                    if (window.EliteUtils) {
+                        window.EliteUtils.showToast(`Código de verificação enviado para ${phoneNumber}`, 'info');
+                    }
+                    
+                    // Armazenar para simulação
+                    localStorage.setItem('elite_2fa_code', code);
+                    localStorage.setItem('elite_2fa_phone', phoneNumber);
+                    localStorage.setItem('elite_2fa_expires', Date.now() + 5 * 60 * 1000);
+                }
+                
+                function verifyTwoFactorCode(inputCode) {
+                    const storedCode = localStorage.getItem('elite_2fa_code');
+                    const storedPhone = localStorage.getItem('elite_2fa_phone');
+                    const expires = parseInt(localStorage.getItem('elite_2fa_expires') || '0');
+                    
+                    if (Date.now() > expires) {
+                        if (window.EliteUtils) {
+                            window.EliteUtils.showToast('Código expirado. Solicite um novo código.', 'error');
+                        }
+                        return false;
+                    }
+                    
+                    if (inputCode === storedCode) {
+                        localStorage.removeItem('elite_2fa_code');
+                        localStorage.removeItem('elite_2fa_phone');
+                        localStorage.removeItem('elite_2fa_expires');
+                        return true;
+                    }
+                    
+                    return false;
+                }
+                
+                function completeAuthentication() {
+                    sessionId = generateSessionId();
+                    deviceId = getDeviceId();
+                    window.ELITE_SESSION_ID = sessionId;
+                    window.ELITE_DEVICE_ID = deviceId;
+                    
+                    const password = passwordInput ? passwordInput.value.trim() : '';
+                    const secureHash = CryptoJS.SHA256(sessionId + password + deviceId).toString();
+                    window.ELITE_SECURE_HASH = secureHash;
+                    
+                    loginOverlay.style.transition = 'opacity 0.3s ease';
+                    loginOverlay.style.opacity = '0';
+                    
+                    setTimeout(() => {
+                        loginOverlay.style.display = 'none';
+                        appContainer.style.display = 'flex';
+                        appContainer.classList.add('visible');
+                        
+                        const userNameSpan = document.getElementById('userName');
+                        const userRoleSpan = document.getElementById('userRole');
+                        const userPhoneSpan = document.getElementById('userPhone');
+                        
+                        if (userNameSpan) userNameSpan.textContent = 'Dr. Administrador';
+                        if (userRoleSpan) userRoleSpan.textContent = 'Super Utilizador · Acesso Total';
+                        if (userPhoneSpan && userMobile) userPhoneSpan.textContent = userMobile;
+                        
+                        if (window.ValueEfficiencyEngine && typeof window.ValueEfficiencyEngine.initialize === 'function') {
+                            window.ValueEfficiencyEngine.initialize();
+                        }
+                        
+                        if (window.EliteProbatum && typeof window.EliteProbatum.initDashboard === 'function') {
+                            window.EliteProbatum.initDashboard();
+                        }
+                        
+                        const activeCasesSpan = document.getElementById('headerActiveCases');
+                        const disputeValueSpan = document.getElementById('headerDisputeValue');
+                        const successRateSpan = document.getElementById('headerSuccessRate');
+                        const casesBadge = document.getElementById('casesBadge');
+                        
+                        if (activeCasesSpan) activeCasesSpan.textContent = '127';
+                        if (disputeValueSpan) disputeValueSpan.textContent = '€8.247.500';
+                        if (successRateSpan) successRateSpan.textContent = '78%';
+                        if (casesBadge) casesBadge.textContent = '127';
+                        
+                        if (window.EliteUtils && typeof window.EliteUtils.showToast === 'function') {
+                            window.EliteUtils.showToast('Unidade de Comando Ativa | 127 Processos Estratégicos Carregados', 'success');
+                        }
+                        
+                        // Registrar o dispositivo móvel do advogado
+                        if (userMobile) {
+                            const registeredDevices = JSON.parse(localStorage.getItem('elite_registered_devices') || '[]');
+                            if (!registeredDevices.includes(userMobile)) {
+                                registeredDevices.push(userMobile);
+                                localStorage.setItem('elite_registered_devices', JSON.stringify(registeredDevices));
+                            }
+                        }
+                    }, 300);
+                }
+                
                 function authenticate() {
                     const username = usernameInput ? usernameInput.value.trim() : '';
                     const password = passwordInput ? passwordInput.value.trim() : '';
+                    const mobile = mobileInput ? mobileInput.value.trim() : '';
                     
-                    console.log('[ELITE PROBATUM] Autenticação solicitada:', username);
+                    console.log('[ELITE PROBATUM] Autenticação solicitada:', username, 'Mobile:', mobile);
                     
                     if (username === 'admin' && password === 'probatum') {
                         if (loginError) loginError.style.display = 'none';
                         
-                        sessionId = generateSessionId();
-                        deviceId = getDeviceId();
-                        window.ELITE_SESSION_ID = sessionId;
-                        window.ELITE_DEVICE_ID = deviceId;
+                        userMobile = mobile;
                         
-                        const secureHash = CryptoJS.SHA256(sessionId + password + deviceId).toString();
-                        window.ELITE_SECURE_HASH = secureHash;
-                        
-                        loginOverlay.style.transition = 'opacity 0.3s ease';
-                        loginOverlay.style.opacity = '0';
-                        
-                        setTimeout(() => {
-                            loginOverlay.style.display = 'none';
-                            appContainer.style.display = 'flex';
-                            appContainer.classList.add('visible');
+                        if (mobile && mobile.length >= 9) {
+                            // Gerar código 2FA
+                            twoFactorCode = generateTwoFactorCode();
+                            sendSMSCode(mobile, twoFactorCode);
                             
-                            const userNameSpan = document.getElementById('userName');
-                            const userRoleSpan = document.getElementById('userRole');
-                            if (userNameSpan) userNameSpan.textContent = 'Dr. Administrador';
-                            if (userRoleSpan) userRoleSpan.textContent = 'Super Utilizador · Acesso Total';
-                            
-                            // Inicializar o módulo de valor (Gain Share)
-                            if (window.ValueEfficiencyEngine && typeof window.ValueEfficiencyEngine.initialize === 'function') {
-                                window.ValueEfficiencyEngine.initialize();
-                                console.log('[ELITE] Value Efficiency Engine (Gain Share) inicializado');
+                            // Mostrar modal 2FA
+                            twoFactorModal.style.display = 'flex';
+                            pendingTwoFactor = true;
+                        } else {
+                            // Sem telemóvel, autenticação direta (fallback)
+                            if (window.EliteUtils) {
+                                window.EliteUtils.showToast('Telemóvel não fornecido. Autenticação simplificada.', 'warning');
                             }
-                            
-                            // Inicializar o Painel de Comando (Dashboard)
-                            if (window.EliteProbatum && typeof window.EliteProbatum.initDashboard === 'function') {
-                                window.EliteProbatum.initDashboard();
-                            }
-                            
-                            const activeCasesSpan = document.getElementById('headerActiveCases');
-                            const disputeValueSpan = document.getElementById('headerDisputeValue');
-                            const successRateSpan = document.getElementById('headerSuccessRate');
-                            const casesBadge = document.getElementById('casesBadge');
-                            
-                            // Dados de demonstração para 60 advogados
-                            if (activeCasesSpan) activeCasesSpan.textContent = '127';
-                            if (disputeValueSpan) disputeValueSpan.textContent = '€8.247.500';
-                            if (successRateSpan) successRateSpan.textContent = '78%';
-                            if (casesBadge) casesBadge.textContent = '127';
-                            
-                            if (window.EliteUtils && typeof window.EliteUtils.showToast === 'function') {
-                                window.EliteUtils.showToast('Unidade de Comando Ativa | 127 Processos Estratégicos Carregados', 'success');
-                            }
-                        }, 300);
-                        
-                        return true;
+                            completeAuthentication();
+                        }
                     } else {
                         if (loginError) {
                             loginError.style.display = 'block';
@@ -542,54 +660,58 @@
                     }
                 }
                 
-                if (langPTBtn) {
-                    langPTBtn.addEventListener('click', function() {
-                        if (window.EliteProbatum && typeof window.EliteProbatum.setLocale === 'function') {
-                            window.EliteProbatum.setLocale('pt');
-                        } else if (window.EliteUtils && typeof window.EliteUtils.setLocale === 'function') {
-                            window.EliteUtils.setLocale('pt');
+                if (verifyTwoFactorBtn) {
+                    verifyTwoFactorBtn.addEventListener('click', () => {
+                        const inputCode = twoFactorCodeInput ? twoFactorCodeInput.value.trim() : '';
+                        if (verifyTwoFactorCode(inputCode)) {
+                            twoFactorModal.style.display = 'none';
+                            completeAuthentication();
+                        } else {
+                            if (window.EliteUtils) {
+                                window.EliteUtils.showToast('Código de verificação inválido. Tente novamente.', 'error');
+                            }
+                            twoFactorCodeInput.value = '';
                         }
-                        langPTBtn.classList.add('active');
-                        langENBtn.classList.remove('active');
                     });
                 }
                 
-                if (langENBtn) {
-                    langENBtn.addEventListener('click', function() {
-                        if (window.EliteProbatum && typeof window.EliteProbatum.setLocale === 'function') {
-                            window.EliteProbatum.setLocale('en');
-                        } else if (window.EliteUtils && typeof window.EliteUtils.setLocale === 'function') {
-                            window.EliteUtils.setLocale('en');
+                if (resendCodeBtn) {
+                    resendCodeBtn.addEventListener('click', () => {
+                        if (userMobile) {
+                            twoFactorCode = generateTwoFactorCode();
+                            sendSMSCode(userMobile, twoFactorCode);
+                            if (window.EliteUtils) {
+                                window.EliteUtils.showToast('Novo código enviado para o seu telemóvel', 'info');
+                            }
                         }
-                        langENBtn.classList.add('active');
-                        langPTBtn.classList.remove('active');
                     });
                 }
                 
-                if (langToggleHeader) {
-                    langToggleHeader.addEventListener('click', function() {
-                        if (window.EliteProbatum && typeof window.EliteProbatum.getLocale === 'function') {
-                            const currentLocale = window.EliteProbatum.getLocale();
-                            const newLocale = currentLocale === 'pt' ? 'en' : 'pt';
-                            window.EliteProbatum.setLocale(newLocale);
-                        } else if (window.EliteUtils && typeof window.EliteUtils.getLocale === 'function') {
-                            const currentLocale = window.EliteUtils.getLocale();
-                            const newLocale = currentLocale === 'pt' ? 'en' : 'pt';
-                            window.EliteUtils.setLocale(newLocale);
-                        }
+                // Eventos de fechar modal
+                document.querySelectorAll('.modal-close').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        const modal = btn.closest('.elite-modal');
+                        if (modal) modal.style.display = 'none';
                     });
-                }
+                });
+                
+                document.querySelectorAll('.elite-modal').forEach(modal => {
+                    modal.addEventListener('click', (e) => {
+                        if (e.target === modal) modal.style.display = 'none';
+                    });
+                });
                 
                 if (authBtn) {
                     authBtn.addEventListener('click', authenticate);
                 }
                 
-                if (usernameInput && passwordInput) {
+                if (usernameInput && passwordInput && mobileInput) {
                     const handleEnter = (e) => {
                         if (e.key === 'Enter') authenticate();
                     };
                     usernameInput.addEventListener('keypress', handleEnter);
                     passwordInput.addEventListener('keypress', handleEnter);
+                    mobileInput.addEventListener('keypress', handleEnter);
                 }
                 
                 const requestBtn = document.getElementById('requestAccessBtn');
@@ -605,34 +727,23 @@
                     });
                 }
                 
-                document.querySelectorAll('.modal-close').forEach(btn => {
-                    btn.addEventListener('click', () => {
-                        const modal = btn.closest('.elite-modal');
-                        if (modal) modal.style.display = 'none';
-                    });
-                });
-                
-                document.querySelectorAll('.elite-modal').forEach(modal => {
-                    modal.addEventListener('click', (e) => {
-                        if (e.target === modal) modal.style.display = 'none';
-                    });
-                });
-                
                 const accessForm = document.getElementById('accessRequestForm');
                 if (accessForm) {
                     accessForm.addEventListener('submit', (e) => {
                         e.preventDefault();
                         const name = document.getElementById('requestName')?.value || '';
                         const email = document.getElementById('requestEmail')?.value || '';
+                        const phone = document.getElementById('requestPhone')?.value || '';
                         const nif = document.getElementById('requestNif')?.value || '';
                         const role = document.getElementById('requestRole')?.value || '';
                         const reason = document.getElementById('requestReason')?.value || '';
                         
-                        if (name && email && nif) {
+                        if (name && email && phone && nif) {
                             const requestData = {
                                 id: Date.now(),
                                 name: name,
                                 email: email,
+                                phone: phone,
                                 nif: nif,
                                 role: role,
                                 reason: reason,
@@ -645,13 +756,13 @@
                             requests.push(requestData);
                             localStorage.setItem('elite_access_requests', JSON.stringify(requests));
                             
-                            alert(`[COMANDO] Pedido de acesso registado.\n\nID: ${requestData.id}\nNome: ${name}\nE-mail: ${email}\n\nO Master Hash Controller irá analisar e responder em até 48h.`);
+                            alert(`[COMANDO] Pedido de acesso registado.\n\nID: ${requestData.id}\nNome: ${name}\nE-mail: ${email}\nTelemóvel: ${phone}\n\nO Master Hash Controller irá analisar e responder em até 48h.`);
                             accessModal.style.display = 'none';
                             accessForm.reset();
                             loginOverlay.style.display = 'flex';
                             loginOverlay.style.opacity = '1';
                         } else {
-                            alert('[COMANDO] Preencha todos os campos obrigatórios (Nome, E-mail, NIF).');
+                            alert('[COMANDO] Preencha todos os campos obrigatórios (Nome, E-mail, Telemóvel, NIF).');
                         }
                     });
                 }
@@ -668,6 +779,8 @@
                             loginOverlay.style.opacity = '1';
                             if (usernameInput) usernameInput.value = '';
                             if (passwordInput) passwordInput.value = '';
+                            if (mobileInput) mobileInput.value = '';
+                            userMobile = null;
                             
                             if (window.CourtDeadlines && typeof window.CourtDeadlines.stopMonitoring === 'function') {
                                 window.CourtDeadlines.stopMonitoring();
@@ -679,10 +792,12 @@
                 const mobileExportBtn = document.getElementById('mobileExportBtn');
                 if (mobileExportBtn) {
                     mobileExportBtn.addEventListener('click', () => {
-                        if (window.EliteProbatum && typeof window.EliteProbatum.exportToRegisteredDevice === 'function') {
+                        if (userMobile) {
+                            if (window.EliteUtils) {
+                                window.EliteUtils.showToast(`Relatório enviado para o dispositivo móvel: ${userMobile}`, 'success');
+                            }
+                        } else if (window.EliteProbatum && typeof window.EliteProbatum.exportToRegisteredDevice === 'function') {
                             window.EliteProbatum.exportToRegisteredDevice();
-                        } else if (window.EliteProbatum && typeof window.EliteProbatum.exportCurrentViewToMobile === 'function') {
-                            window.EliteProbatum.exportCurrentViewToMobile();
                         } else {
                             alert('[COMANDO] Funcionalidade de exportação para dispositivo móvel em desenvolvimento.');
                         }
@@ -714,12 +829,15 @@
                         const webhookUrl = document.getElementById('webhookUrl')?.value;
                         const themeMode = document.getElementById('themeMode')?.value;
                         const emailNotifications = document.getElementById('emailNotifications')?.checked;
+                        const smsNotifications = document.getElementById('smsNotifications')?.checked;
                         
                         const settings = {
                             apiCourtKey: apiCourtKey ? CryptoJS.SHA256(apiCourtKey).toString() : null,
                             webhookUrl: webhookUrl,
                             themeMode: themeMode,
                             emailNotifications: emailNotifications,
+                            smsNotifications: smsNotifications,
+                            userMobile: userMobile,
                             updatedAt: new Date().toISOString()
                         };
                         

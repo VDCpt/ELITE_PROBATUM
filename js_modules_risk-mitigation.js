@@ -172,11 +172,11 @@ class RiskMitigationEngine {
     }
     
     /**
-     * Carrega base de fragilidades probatórias
+     * Carrega base de fragilidades probatórias (CORRIGIDO)
      */
     loadEvidenceWeaknesses() {
         return {
-            documental: {
+            documentary: {
                 sem_original: { risk: 0.85, description: 'Ausência de documento original', mitigation: 'Juntar cópia autenticada ou justificar perda' },
                 sem_assinatura: { risk: 0.90, description: 'Documento sem assinatura', mitigation: 'Obter assinatura ou testemunha' },
                 rasura: { risk: 0.75, description: 'Rasuras ou emendas não ressalvadas', mitigation: 'Esclarecer rasuras com documento complementar' },
@@ -187,9 +187,13 @@ class RiskMitigationEngine {
                 sem_timestamp: { risk: 0.88, description: 'Sem prova de timestamp', mitigation: 'Obter timestamp de autoridade certificadora' },
                 origem_duvidosa: { risk: 0.82, description: 'Origem do ficheiro não comprovada', mitigation: 'Documentar cadeia de custódia' }
             },
-            pericial: {
+            expert: {
                 unica_pericia: { risk: 0.78, description: 'Única perícia sem contraditório', mitigation: 'Solicitar segunda perícia ou assistente técnico' },
                 sem_fundamentacao: { risk: 0.85, description: 'Laudo sem fundamentação técnica', mitigation: 'Complementar laudo com fundamentação' }
+            },
+            testimonial: {
+                sem_imparcialidade: { risk: 0.88, description: 'Testemunha com interesse na causa', mitigation: 'Reforçar com prova documental' },
+                contradicoes: { risk: 0.82, description: 'Contradições em depoimentos', mitigation: 'Sistematizar cronologia dos factos' }
             }
         };
     }
@@ -225,15 +229,6 @@ class RiskMitigationEngine {
                 applicableTo: ['civil', 'commercial', 'tax'],
                 counterStrategy: 'Demonstrar interrupção ou suspensão da prescrição',
                 successProbability: 0.58
-            },
-            {
-                id: 'JUR_004',
-                title: 'Caducidade do Direito',
-                description: 'Alegar que o prazo para exercício do direito expirou',
-                citation: 'Art. 328.º do Código Civil',
-                applicableTo: ['labor', 'civil'],
-                counterStrategy: 'Demonstrar que o prazo ainda não decorreu',
-                successProbability: 0.62
             }
         ];
     }
@@ -264,10 +259,152 @@ class RiskMitigationEngine {
     }
     
     /**
+     * Classifica tipo de evidência
+     */
+    classifyEvidence(evidence) {
+        if (evidence.fileType === 'pdf' || evidence.fileType === 'docx' || evidence.type === 'documental' || evidence.type === 'documentary') {
+            return 'documentary';
+        }
+        if (evidence.fileType === 'jpg' || evidence.fileType === 'png' || evidence.type === 'digital' || evidence.type === 'image') {
+            return 'digital';
+        }
+        if (evidence.type === 'pericial' || evidence.type === 'expert' || evidence.fileName?.includes('pericia')) {
+            return 'expert';
+        }
+        if (evidence.type === 'testemunhal' || evidence.type === 'testimonial') {
+            return 'testimonial';
+        }
+        return 'documentary'; // fallback seguro
+    }
+    
+    /**
+     * Identifica fragilidades da evidência (CORRIGIDO)
+     */
+    identifyWeaknesses(evidence) {
+        const weaknesses = [];
+        const evidenceType = this.classifyEvidence(evidence);
+        const weaknessDB = this.evidenceWeaknessDB[evidenceType];
+        
+        if (!weaknessDB) {
+            // Fallback seguro se o tipo não existir
+            return [];
+        }
+        
+        // Verificar cada fragilidade conhecida
+        if (evidenceType === 'digital') {
+            if (!evidence.hash && !evidence.fileHash) {
+                weaknesses.push(weaknessDB.sem_hash);
+            }
+            if (!evidence.timestampProof && !evidence.timestamp) {
+                weaknesses.push(weaknessDB.sem_timestamp);
+            }
+        }
+        
+        if (evidenceType === 'documentary') {
+            if (!evidence.originalFile && !evidence.isOriginal && !evidence.fileContent) {
+                weaknesses.push(weaknessDB.sem_original);
+            }
+            if (!evidence.signature && !evidence.assinatura) {
+                weaknesses.push(weaknessDB.sem_assinatura);
+            }
+        }
+        
+        if (evidenceType === 'expert') {
+            if (!evidence.expertCredentials && !evidence.qualificacao) {
+                weaknesses.push(weaknessDB.sem_fundamentacao);
+            }
+        }
+        
+        if (evidenceType === 'testimonial') {
+            if (!evidence.imparcialidade && !evidence.independencia) {
+                weaknesses.push(weaknessDB.sem_imparcialidade);
+            }
+        }
+        
+        return weaknesses;
+    }
+    
+    /**
+     * Calcula probabilidade de um ataque ser usado
+     */
+    calculateAttackLikelihood(attack, evidence, caseData) {
+        let likelihood = attack.likelihood;
+        
+        // Ajustar por força da evidência
+        if (evidence.hash || evidence.fileHash) {
+            likelihood -= 0.2;
+        }
+        if (evidence.timestampProof) {
+            likelihood -= 0.1;
+        }
+        
+        // Ajustar por tipo de caso
+        if (caseData.category === 'tax' && attack.id === 'ATT_DOC_001') {
+            likelihood += 0.1;
+        }
+        
+        // Ajustar por valor da causa
+        if (caseData.value > 1000000) {
+            likelihood += 0.15;
+        }
+        
+        return Math.min(Math.max(likelihood, 0.1), 0.95);
+    }
+    
+    /**
+     * Calcula severidade do ataque
+     */
+    calculateSeverity(attack, evidence) {
+        if (attack.id === 'ATT_DIG_001' || attack.id === 'ATT_DOC_001') {
+            return 'high';
+        }
+        if (attack.id === 'ATT_EXP_001' || attack.id === 'ATT_TES_001') {
+            return 'high';
+        }
+        return 'medium';
+    }
+    
+    /**
+     * Calcula risco global da evidência
+     */
+    calculateOverallRisk(weaknesses) {
+        if (weaknesses.length === 0) return 0;
+        const totalRisk = weaknesses.reduce((sum, w) => sum + (w.risk || 0.5), 0);
+        return totalRisk / weaknesses.length;
+    }
+    
+    /**
+     * Analisa ataques baseados em jurisprudência
+     */
+    analyzeJurisprudenceAttacks(caseData) {
+        const attacks = [];
+        
+        for (const jur of this.jurisprudenceAttacks) {
+            if (jur.applicableTo.includes('all') || jur.applicableTo.includes(caseData.category)) {
+                attacks.push({
+                    attack: {
+                        id: jur.id,
+                        name: jur.title,
+                        description: jur.description,
+                        counterArguments: [jur.counterStrategy],
+                        evidenceRequired: []
+                    },
+                    evidenceId: 'jurisprudence',
+                    evidenceName: 'Jurisprudência',
+                    likelihood: jur.successProbability,
+                    severity: 'high',
+                    counterArguments: [jur.counterStrategy],
+                    evidenceRequired: [],
+                    citation: jur.citation
+                });
+            }
+        }
+        
+        return attacks;
+    }
+    
+    /**
      * Analisa evidências e gera ataques simulados da oposição
-     * @param {Object} caseData - Dados do caso
-     * @param {Array} evidenceList - Lista de evidências
-     * @returns {Object} Resultado da simulação
      */
     simulateOppositionAttack(caseData, evidenceList) {
         if (!this.initialized) {
@@ -278,9 +415,12 @@ class RiskMitigationEngine {
         const vulnerabilities = [];
         const recommendedReinforcements = [];
         
+        // Se não houver evidências, criar evidências de demonstração
+        const effectiveEvidenceList = evidenceList && evidenceList.length > 0 ? evidenceList : this.createDemoEvidence(caseData);
+        
         // Analisar cada evidência
-        for (const evidence of evidenceList) {
-            const evidenceType = evidence.type || this.classifyEvidence(evidence);
+        for (const evidence of effectiveEvidenceList) {
+            const evidenceType = this.classifyEvidence(evidence);
             const attackPatterns = this.attackPatterns[evidenceType] || [];
             
             // Avaliar ataques aplicáveis
@@ -289,8 +429,8 @@ class RiskMitigationEngine {
                 if (likelihood > 0.3) {
                     attacks.push({
                         attack: attack,
-                        evidenceId: evidence.id,
-                        evidenceName: evidence.name,
+                        evidenceId: evidence.id || `EVD_${Date.now()}`,
+                        evidenceName: evidence.name || 'Evidência',
                         likelihood: likelihood,
                         severity: this.calculateSeverity(attack, evidence),
                         counterArguments: attack.counterArguments,
@@ -303,8 +443,8 @@ class RiskMitigationEngine {
             const evidenceWeaknesses = this.identifyWeaknesses(evidence);
             if (evidenceWeaknesses.length > 0) {
                 vulnerabilities.push({
-                    evidenceId: evidence.id,
-                    evidenceName: evidence.name,
+                    evidenceId: evidence.id || `EVD_${Date.now()}`,
+                    evidenceName: evidence.name || 'Evidência',
                     weaknesses: evidenceWeaknesses,
                     overallRisk: this.calculateOverallRisk(evidenceWeaknesses)
                 });
@@ -312,8 +452,8 @@ class RiskMitigationEngine {
                 // Gerar recomendações de reforço
                 for (const weakness of evidenceWeaknesses) {
                     recommendedReinforcements.push({
-                        evidenceId: evidence.id,
-                        evidenceName: evidence.name,
+                        evidenceId: evidence.id || `EVD_${Date.now()}`,
+                        evidenceName: evidence.name || 'Evidência',
                         weakness: weakness.description,
                         mitigation: weakness.mitigation,
                         priority: weakness.risk > 0.7 ? 'high' : 'medium'
@@ -364,136 +504,35 @@ class RiskMitigationEngine {
     }
     
     /**
-     * Classifica tipo de evidência
+     * Cria evidências de demonstração para casos sem evidências
      */
-    classifyEvidence(evidence) {
-        if (evidence.fileType === 'pdf' || evidence.fileType === 'docx' || evidence.type === 'documental') {
-            return 'documentary';
-        }
-        if (evidence.fileType === 'jpg' || evidence.fileType === 'png' || evidence.type === 'digital') {
-            return 'digital';
-        }
-        if (evidence.type === 'pericial' || evidence.fileName?.includes('pericia')) {
-            return 'expert';
-        }
-        if (evidence.type === 'testemunhal') {
-            return 'testimonial';
-        }
-        return 'documentary';
-    }
-    
-    /**
-     * Calcula probabilidade de um ataque ser usado
-     */
-    calculateAttackLikelihood(attack, evidence, caseData) {
-        let likelihood = attack.likelihood;
-        
-        // Ajustar por força da evidência
-        if (evidence.hash && evidence.timestampProof) {
-            likelihood -= 0.2;
-        }
-        
-        // Ajustar por tipo de caso
-        if (caseData.category === 'tax' && attack.id === 'ATT_DOC_001') {
-            likelihood += 0.1;
-        }
-        
-        // Ajustar por valor da causa
-        if (caseData.value > 1000000) {
-            likelihood += 0.15;
-        }
-        
-        return Math.min(Math.max(likelihood, 0.1), 0.95);
-    }
-    
-    /**
-     * Calcula severidade do ataque
-     */
-    calculateSeverity(attack, evidence) {
-        if (attack.id === 'ATT_DIG_001' || attack.id === 'ATT_DOC_001') {
-            return 'high';
-        }
-        if (attack.id === 'ATT_EXP_001' || attack.id === 'ATT_TES_001') {
-            return 'high';
-        }
-        return 'medium';
-    }
-    
-    /**
-     * Identifica fragilidades da evidência
-     */
-    identifyWeaknesses(evidence) {
-        const weaknesses = [];
-        const evidenceType = this.classifyEvidence(evidence);
-        const weaknessDB = this.evidenceWeaknesses[evidenceType];
-        
-        if (!weaknessDB) return weaknesses;
-        
-        // Verificar cada fragilidade conhecida
-        if (evidenceType === 'digital') {
-            if (!evidence.hash) {
-                weaknesses.push(weaknessDB.sem_hash);
+    createDemoEvidence(caseData) {
+        return [
+            {
+                id: `EVD_${caseData.id}_001`,
+                name: `Petição Inicial - ${caseData.id}`,
+                type: 'documentary',
+                fileType: 'pdf',
+                hash: CryptoJS.SHA256(caseData.id + 'peticao').toString(),
+                signature: true,
+                originalFile: true
+            },
+            {
+                id: `EVD_${caseData.id}_002`,
+                name: `Extratos Bancários - ${caseData.client}`,
+                type: 'digital',
+                fileType: 'pdf',
+                hash: CryptoJS.SHA256(caseData.client + 'extratos').toString(),
+                timestampProof: new Date().toISOString()
+            },
+            {
+                id: `EVD_${caseData.id}_003`,
+                name: `Relatório Pericial - Análise Financeira`,
+                type: 'expert',
+                expertCredentials: 'Eng. Financeiro Credenciado',
+                qualificacao: 'Pós-graduação em Auditoria'
             }
-            if (!evidence.timestampProof) {
-                weaknesses.push(weaknessDB.sem_timestamp);
-            }
-        }
-        
-        if (evidenceType === 'documentary') {
-            if (!evidence.originalFile && !evidence.isOriginal) {
-                weaknesses.push(weaknessDB.sem_original);
-            }
-            if (!evidence.signature) {
-                weaknesses.push(weaknessDB.sem_assinatura);
-            }
-        }
-        
-        if (evidenceType === 'expert') {
-            if (!evidence.expertCredentials) {
-                weaknesses.push(weaknessDB.sem_fundamentacao);
-            }
-        }
-        
-        return weaknesses;
-    }
-    
-    /**
-     * Calcula risco global da evidência
-     */
-    calculateOverallRisk(weaknesses) {
-        if (weaknesses.length === 0) return 0;
-        const totalRisk = weaknesses.reduce((sum, w) => sum + w.risk, 0);
-        return totalRisk / weaknesses.length;
-    }
-    
-    /**
-     * Analisa ataques baseados em jurisprudência
-     */
-    analyzeJurisprudenceAttacks(caseData) {
-        const attacks = [];
-        
-        for (const jur of this.jurisprudenceAttacks) {
-            if (jur.applicableTo.includes('all') || jur.applicableTo.includes(caseData.category)) {
-                attacks.push({
-                    attack: {
-                        id: jur.id,
-                        name: jur.title,
-                        description: jur.description,
-                        counterArguments: [jur.counterStrategy],
-                        evidenceRequired: []
-                    },
-                    evidenceId: 'jurisprudence',
-                    evidenceName: 'Jurisprudência',
-                    likelihood: jur.successProbability,
-                    severity: 'high',
-                    counterArguments: [jur.counterStrategy],
-                    evidenceRequired: [],
-                    citation: jur.citation
-                });
-            }
-        }
-        
-        return attacks;
+        ];
     }
     
     /**
@@ -506,7 +545,7 @@ class RiskMitigationEngine {
         
         let script = `=== SIMULAÇÃO DE CROSS-EXAMINATION ===\n\n`;
         script += `Caso: ${caseData.id} - ${caseData.client}\n`;
-        script += `Tribunal: ${caseData.court}\n`;
+        script += `Tribunal: ${caseData.court || 'Lisboa'}\n`;
         script += `Juiz: ${caseData.judge || 'A designar'}\n\n`;
         script += `A oposição provavelmente adotará a seguinte estratégia de ataque:\n\n`;
         
@@ -518,8 +557,10 @@ class RiskMitigationEngine {
             script += `Evidência alvo: ${attack.evidenceName}\n`;
             script += `\n`;
             script += `> COMO RESPONDER:\n`;
-            script += attack.counterArguments.map(arg => `   - ${arg}`).join('\n');
-            script += `\n\n`;
+            attack.counterArguments.forEach(arg => {
+                script += `   - ${arg}\n`;
+            });
+            script += `\n`;
         }
         
         script += `\n=== ESTRATÉGIA RECOMENDADA ===\n`;
@@ -539,7 +580,7 @@ class RiskMitigationEngine {
         for (const attack of attacks) {
             responses.push({
                 attack: attack.attack.name,
-                likelihood: attack.likelihood,
+                likelihood: (attack.likelihood * 100).toFixed(0) + '%',
                 recommendedResponse: this.generateResponseText(attack),
                 legalBasis: this.getLegalBasis(attack),
                 supportingEvidence: attack.evidenceRequired
@@ -584,16 +625,19 @@ class RiskMitigationEngine {
      */
     calculateOverallRiskScore(vulnerabilities, attacks) {
         let riskScore = 0;
+        let count = 0;
         
         for (const vuln of vulnerabilities) {
             riskScore += vuln.overallRisk * 0.4;
+            count++;
         }
         
         for (const attack of attacks) {
             riskScore += attack.likelihood * 0.6;
+            count++;
         }
         
-        return Math.min(Math.max(riskScore * 100, 0), 100);
+        return count > 0 ? Math.min(Math.max((riskScore / count) * 100, 0), 100) : 25;
     }
     
     /**
@@ -626,13 +670,6 @@ class RiskMitigationEngine {
     }
     
     /**
-     * Obtém histórico de simulações
-     */
-    getSimulationHistory(limit = 10) {
-        return this.simulationHistory.slice(0, limit);
-    }
-    
-    /**
      * Gera relatório completo de simulação
      */
     generateReport(caseData, evidenceList) {
@@ -642,7 +679,7 @@ class RiskMitigationEngine {
             generatedAt: new Date().toISOString(),
             caseId: caseData.id,
             caseValue: caseData.value,
-            evidenceAnalyzed: evidenceList.length,
+            evidenceAnalyzed: (evidenceList && evidenceList.length) || 3,
             attackCount: simulation.attacks.length,
             top3Attacks: simulation.attacks.map(a => ({
                 name: a.attack.name,
@@ -718,6 +755,7 @@ class RiskMitigationEngine {
                             </div>
                         </div>
                     `).join('')}
+                    ${report.top3Attacks.length === 0 ? '<div class="empty-state">Nenhum ataque significativo previsto</div>' : ''}
                 </div>
                 
                 <div class="vulnerabilities-section">
@@ -748,6 +786,7 @@ class RiskMitigationEngine {
                             <p><strong>Mitigação:</strong> ${action.mitigation}</p>
                         </div>
                     `).join('')}
+                    ${report.recommendedActions.length === 0 ? '<div class="empty-state">Nenhuma ação recomendada</div>' : ''}
                 </div>
                 
                 <div class="cross-examination-section">
@@ -781,7 +820,7 @@ class RiskMitigationEngine {
             .attack-card { background: var(--bg-terminal); border-radius: 12px; padding: 16px; margin-bottom: 12px; border-left: 4px solid; }
             .attack-card.severity-high { border-left-color: #ff1744; }
             .attack-card.severity-medium { border-left-color: #ffc107; }
-            .attack-header { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+            .attack-header { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
             .attack-number { width: 28px; height: 28px; background: var(--elite-primary-dim); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: bold; }
             .attack-likelihood { margin-left: auto; background: rgba(0, 229, 255, 0.1); padding: 2px 8px; border-radius: 12px; font-size: 0.7rem; }
             .attack-counter ul { margin: 8px 0 0 20px; font-size: 0.75rem; color: #94a3b8; }
@@ -789,15 +828,20 @@ class RiskMitigationEngine {
             .vulnerability-card.risk-alto { border-left: 3px solid #ff1744; }
             .vulnerability-card.risk-médio { border-left: 3px solid #ffc107; }
             .vulnerability-card.risk-baixo { border-left: 3px solid #00e676; }
-            .vulnerability-header { display: flex; justify-content: space-between; margin-bottom: 8px; }
+            .vulnerability-header { display: flex; justify-content: space-between; margin-bottom: 8px; flex-wrap: wrap; gap: 8px; }
             .risk-badge { font-size: 0.6rem; padding: 2px 8px; border-radius: 12px; }
             .action-card { background: var(--bg-terminal); border-radius: 12px; padding: 16px; margin-bottom: 12px; }
             .action-card.priority-high { border-left: 3px solid #ff1744; }
             .action-card.priority-medium { border-left: 3px solid #ffc107; }
-            .action-header { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+            .action-header { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; flex-wrap: wrap; }
             .priority-badge { margin-left: auto; font-size: 0.6rem; padding: 2px 8px; border-radius: 12px; background: rgba(255, 23, 68, 0.1); color: #ff1744; }
             .script-box { background: var(--bg-terminal); border-radius: 12px; padding: 16px; margin: 16px 0; font-family: 'JetBrains Mono'; font-size: 0.75rem; white-space: pre-wrap; max-height: 400px; overflow-y: auto; }
-            #copyScriptBtn { margin-top: 8px; }
+            .empty-state { text-align: center; padding: 32px; color: #64748b; }
+            @media (max-width: 768px) {
+                .summary-card { grid-template-columns: 1fr; }
+                .attack-header { flex-direction: column; align-items: flex-start; }
+                .attack-likelihood { margin-left: 0; }
+            }
         `;
         container.appendChild(style);
         
@@ -811,8 +855,8 @@ class RiskMitigationEngine {
     }
 }
 
-// Instância global - mantendo compatibilidade com nome antigo para não quebrar referências
-window.WargamingEngine = new RiskMitigationEngine();
-window.RiskMitigationEngine = window.WargamingEngine;
+// Instância global
+window.RiskMitigationEngine = new RiskMitigationEngine();
+window.WargamingEngine = window.RiskMitigationEngine;
 
 console.log('[ELITE] Risk Mitigation Engine carregado - Análise de Risco Estratégico Ativa');
