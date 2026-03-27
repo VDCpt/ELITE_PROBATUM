@@ -412,54 +412,29 @@
     <script src="js_components_charts.js"></script>
     <script src="js_components_tables.js"></script>
     
-    <!-- 2. MÓDULOS DE NEGÓCIO (Base) -->
-    <script src="js_modules_predictive-litigation.js"></script>
-    <script src="js_modules_mass-litigation.js"></script>
-    <script src="js_modules_judicial-analytics.js"></script>
-    <script src="js_modules_fee-optimizer.js"></script>
-    <script src="js_modules_platform-intel.js"></script>
-    <script src="js_modules_practice-dashboard.js"></script>
-    <script src="js_modules_client-experience.js"></script>
-    <script src="js_modules_market-intelligence.js"></script>
-    <script src="js_modules_court-deadlines.js"></script>
+    <!-- 2. MÓDULOS DE NEGÓCIO (Base - Todos os existentes) -->
     <script src="js_modules_ai-assistant.js"></script>
-    <script src="js_modules_forensic-vault.js"></script>
-    <script src="js_modules_lead-intelligence.js"></script>
-    <script src="js_modules_gamification.js"></script>
-    
-    <!-- 3. MÓDULOS DE INOVAÇÃO DISRUPTIVA (v2.0.5) -->
-    <script src="js_modules_wargaming-engine.js"></script>
-    <script src="js_modules_judge-biometrics.js"></script>
-    <script src="js_modules_blockchain-custody.js"></script>
-    <script src="js_modules_quantum-analytics.js"></script>
-    
-    <!-- 4. EXTENSÕES E MÓDULOS DA ARQUITETURA DE VERDADE (v2.0.5) -->
-    <script src="js_modules_shadow-dossier.js"></script>
     <script src="js_modules_black-swan.js"></script>
+    <script src="js_modules_blockchain-custody.js"></script>
+    <script src="js_modules_client-experience.js"></script>
+    <script src="js_modules_court-deadlines.js"></script>
+    <script src="js_modules_gamification.js"></script>
+    <script src="js_modules_judge-biometrics.js"></script>
+    <script src="js_modules_judicial-analytics.js"></script>
+    <script src="js_modules_lead-intelligence.js"></script>
+    <script src="js_modules_market-intelligence.js"></script>
+    <script src="js_modules_mass-litigation.js"></script>
+    <script src="js_modules_neural-litigation.js"></script>
+    <script src="js_modules_platform-intel.js"></script>
+    <script src="js_modules_quantum-analytics.js"></script>
+    <script src="js_modules_risk-mitigation.js"></script>
+    <script src="js_modules_shadow-dossier.js"></script>
+    <script src="js_modules_strategic-vault.js"></script>
     
-    <!-- 5. EXTENSÕES QUE DEPENDEM DOS MÓDULOS BASE -->
-    <script>
-        // Aguardar o carregamento completo antes de carregar as extensões
-        window.addEventListener('load', function() {
-            // Carregar extensões dinamicamente após os módulos base estarem prontos
-            const extensions = [
-                'js_modules_fee-optimizer-ext.js',
-                'js_modules_practice-dashboard-ext.js',
-                'js_modules_forensic-vault-ext.js'
-            ];
-            
-            extensions.forEach(function(src) {
-                const script = document.createElement('script');
-                script.src = src;
-                script.onerror = function() {
-                    console.warn('[ELITE] Extensão não encontrada:', src);
-                };
-                document.head.appendChild(script);
-            });
-        });
-    </script>
+    <!-- 3. MÓDULOS DE NEGÓCIO (NOVOS - Gain Share e Value Efficiency) -->
+    <script src="js_modules_value-efficiency.js"></script>
     
-    <!-- SCRIPT DE INICIALIZAÇÃO -->
+    <!-- 4. SCRIPT DE INICIALIZAÇÃO (Integração dos novos módulos) -->
     <script>
         (function() {
             'use strict';
@@ -527,6 +502,13 @@
                             if (userNameSpan) userNameSpan.textContent = 'Dr. Administrador';
                             if (userRoleSpan) userRoleSpan.textContent = 'Super Utilizador · Acesso Total';
                             
+                            // Inicializar o módulo de valor (Gain Share)
+                            if (window.ValueEfficiencyEngine && typeof window.ValueEfficiencyEngine.initialize === 'function') {
+                                window.ValueEfficiencyEngine.initialize();
+                                console.log('[ELITE] Value Efficiency Engine (Gain Share) inicializado');
+                            }
+                            
+                            // Inicializar o Painel de Comando (Dashboard)
                             if (window.EliteProbatum && typeof window.EliteProbatum.initDashboard === 'function') {
                                 window.EliteProbatum.initDashboard();
                             }
@@ -536,13 +518,14 @@
                             const successRateSpan = document.getElementById('headerSuccessRate');
                             const casesBadge = document.getElementById('casesBadge');
                             
-                            if (activeCasesSpan) activeCasesSpan.textContent = '27';
-                            if (disputeValueSpan) disputeValueSpan.textContent = '€1.247.500';
-                            if (successRateSpan) successRateSpan.textContent = '72%';
-                            if (casesBadge) casesBadge.textContent = '27';
+                            // Dados de demonstração para 60 advogados
+                            if (activeCasesSpan) activeCasesSpan.textContent = '127';
+                            if (disputeValueSpan) disputeValueSpan.textContent = '€8.247.500';
+                            if (successRateSpan) successRateSpan.textContent = '78%';
+                            if (casesBadge) casesBadge.textContent = '127';
                             
                             if (window.EliteUtils && typeof window.EliteUtils.showToast === 'function') {
-                                window.EliteUtils.showToast('Unidade de Comando Ativa | 27 Processos Carregados', 'success');
+                                window.EliteUtils.showToast('Unidade de Comando Ativa | 127 Processos Estratégicos Carregados', 'success');
                             }
                         }, 300);
                         
@@ -708,8 +691,8 @@
                 
                 if (integrityCheckBtn) {
                     integrityCheckBtn.addEventListener('click', () => {
-                        if (window.ForensicVault && typeof window.ForensicVault.verifySystemIntegrity === 'function') {
-                            window.ForensicVault.verifySystemIntegrity();
+                        if (window.StrategicVault && typeof window.StrategicVault.verifySystemIntegrity === 'function') {
+                            window.StrategicVault.verifySystemIntegrity();
                         } else if (window.BlockchainCustody && typeof window.BlockchainCustody.verifySystemIntegrity === 'function') {
                             window.BlockchainCustody.verifySystemIntegrity();
                         } else {
