@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="description" content="ELITE PROBATUM v2.0.5 — Unidade de Comando Estratégico">
+    <meta name="author" content="ELITE PROBATUM">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://fonts.googleapis.com https://unpkg.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com data:; connect-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://fonts.googleapis.com; img-src 'self' data: blob:; base-uri 'self'; form-action 'self';">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
+    <title>ELITE PROBATUM | Unidade de Comando Estratégico</title>
+    
+    <!-- Favicon -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚖️</text></svg>">
+    
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- CSS Locais -->
+    <link rel="stylesheet" href="css_main.css">
+    <link rel="stylesheet" href="css_components.css">
+    
+    <!-- Vendors CDN -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.4/moment.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+</head>
+<body>
+    
+    <!-- GATEKEEPER SECURE - LOGIN ESTRATÉGICO -->
+    <div id="loginOverlay" class="gatekeeper-secure">
+        <div class="login-card">
+            <div class="login-logo">
+                <i class="fas fa-crown"></i>
+                <span>ELITE <span class="logo-highlight">PROBATUM</span></span>
+            </div>
+            <div class="version-badge">v2.0.5 · UNIDADE DE COMANDO ESTRATÉGICO</div>
+            <p class="subtitle" data-i18n="login_subtitle">Acesso restrito a pessoal autorizado</p>
+            
+            <div class="form-group">
+                <label data-i18n="login_user">UTILIZADOR</label>
+                <input type="text" id="username" placeholder="admin" value="">
+            </div>
+            <div class="form-group">
+                <label data-i18n="login_password">PALAVRA-PASSE</label>
+                <input type="password" id="password" placeholder="••••••••" value="">
+            </div>
+            
+            <div id="loginError" class="login-error" style="display: none;" data-i18n="login_error">ACESSO NEGADO — Credenciais inválidas</div>
+            
+            <button id="authBtn" class="elite-btn primary full-width">
+                <i class="fas fa-key"></i> <span data-i18n="login_button">AUTENTICAR</span>
+            </button>
+            
+            <div class="request-access">
+                <button id="requestAccessBtn" class="elite-btn secondary full-width request-access-btn">
+                    <i class="fas fa-user-plus"></i> <span data-i18n="login_request">SOLICITAR ACESSO</span>
+                </button>
+                <p class="access-hint">O pedido será enviado ao Master Hash Controller</p>
+            </div>
+            
+            <div class="language-selector">
+                <button id="langPT" class="lang-btn active" data-locale="pt">🇵🇹 PORTUGUÊS</button>
+                <button id="langEN" class="lang-btn" data-locale="en">🇬🇧 ENGLISH</button>
+            </div>
+            
+            <div class="security-badge">
+                <i class="fas fa-shield-alt"></i> <span data-i18n="login_security">ENCRIPTADO AES-256 · CANAL SEGURO</span>
+            </div>
+        </div>
+    </div>
+    
+    <!-- MODAL DE PEDIDO DE ACESSO -->
+    <div id="accessRequestModal" class="elite-modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-user-plus"></i> Solicitar Acesso</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="accessRequestForm">
+                    <div class="form-group">
+                        <label>Nome Completo *</label>
+                        <input type="text" id="requestName" required>
+                    </div>
+                    <div class="form-group">
+                        <label>E-mail Institucional *</label>
+                        <input type="email" id="requestEmail" required>
+                    </div>
+                    <div class="form-group">
+                        <label>NIF / NIPC *</label>
+                        <input type="text" id="requestNif" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Cargo / Função</label>
+                        <input type="text" id="requestRole" placeholder="Ex: Sócio, Advogado, Estagiário">
+                    </div>
+                    <div class="form-group">
+                        <label>Justificação de Acesso</label>
+                        <textarea id="requestReason" rows="3" placeholder="Motivo pelo qual necessita de aceder à metodologia..."></textarea>
+                    </div>
+                    <button type="submit" class="elite-btn primary full-width">
+                        <i class="fas fa-paper-plane"></i> ENVIAR PEDIDO
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- MODAL DE PREVISÃO IA -->
+    <div id="aiPredictionModal" class="elite-modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-brain"></i> ANÁLISE PREDITIVA AVANÇADA</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body" id="aiPredictionBody"></div>
+        </div>
+    </div>
+    
+    <!-- MODAL DE CAPTAÇÃO DE LEADS -->
+    <div id="leadCaptureModal" class="elite-modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-chart-line"></i> INTELIGÊNCIA DE MERCADO · LEADS QUENTES</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body" id="leadCaptureBody"></div>
+        </div>
+    </div>
+    
+    <!-- MAIN APP CONTAINER - TERMINAL DE OPERAÇÕES -->
+    <div id="appContainer" class="elite-app" style="display: none;">
+        
+        <!-- SIDEBAR ESTRATÉGICA -->
+        <aside class="elite-sidebar">
+            <div class="sidebar-logo">
+                <i class="fas fa-crown"></i>
+                <span>ELITE<span class="elite-light">PROBATUM</span></span>
+                <span class="version-tag">v2.0.5</span>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <a href="#" class="nav-item active" data-view="dashboard" data-i18n="nav_dashboard">
+                    <i class="fas fa-chart-pie"></i>
+                    <span>PAINEL DE COMANDO</span>
+                </a>
+                <a href="#" class="nav-item" data-view="cases" data-i18n="nav_cases">
+                    <i class="fas fa-folder-open"></i>
+                    <span>PROCESSOS</span>
+                    <span class="nav-badge" id="casesBadge">0</span>
+                </a>
+                <a href="#" class="nav-item" data-view="insolvency" data-i18n="nav_insolvency">
+                    <i class="fas fa-chart-line"></i>
+                    <span>INSOLVÊNCIAS (CIRE)</span>
+                </a>
+                <a href="#" class="nav-item" data-view="labor" data-i18n="nav_labor">
+                    <i class="fas fa-briefcase"></i>
+                    <span>CONTENCIOSO LABORAL</span>
+                </a>
+                <a href="#" class="nav-item" data-view="litigation" data-i18n="nav_litigation">
+                    <i class="fas fa-brain"></i>
+                    <span>INTELIGÊNCIA DE LITÍGIO</span>
+                </a>
+                <a href="#" class="nav-item" data-view="questionnaire" data-i18n="nav_questionnaire">
+                    <i class="fas fa-question-circle"></i>
+                    <span>QUESTIONÁRIOS ESTRATÉGICOS</span>
+                </a>
+                <a href="#" class="nav-item" data-view="evidence" data-i18n="nav_evidence">
+                    <i class="fas fa-link"></i>
+                    <span>CADEIA DE CUSTÓDIA</span>
+                </a>
+                <a href="#" class="nav-item" data-view="adversary" data-i18n="nav_adversary">
+                    <i class="fas fa-users"></i>
+                    <span>ANÁLISE DE OPOSIÇÃO</span>
+                </a>
+                <a href="#" class="nav-item" data-view="simulator" data-i18n="nav_simulator">
+                    <i class="fas fa-flask"></i>
+                    <span>SIMULADOR DE RISCO</span>
+                </a>
+                <a href="#" class="nav-item" data-view="deadlines" data-i18n="nav_deadlines">
+                    <i class="fas fa-calendar-alt"></i>
+                    <span>PRAZOS JUDICIAIS</span>
+                </a>
+                <a href="#" class="nav-item" data-view="activitylog" data-i18n="nav_activitylog">
+                    <i class="fas fa-history"></i>
+                    <span>REGISTOS RGPD</span>
+                </a>
+                <a href="#" class="nav-item" data-view="truth_architecture" data-i18n="nav_truth_architecture">
+                    <i class="fas fa-chess-queen"></i>
+                    <span>ARQUITETURA DE VERDADE</span>
+                </a>
+                <a href="#" class="nav-item" data-view="admin" data-i18n="nav_admin">
+                    <i class="fas fa-skull"></i>
+                    <span>ADMINISTRAÇÃO</span>
+                </a>
+            </nav>
+            
+            <div class="sidebar-footer">
+                <div class="lawyer-info">
+                    <i class="fas fa-user-shield"></i>
+                    <div>
+                        <strong id="userName">Dr. Administrador</strong>
+                        <small id="userRole">Super Utilizador · Acesso Total</small>
+                    </div>
+                </div>
+                <button class="logout-btn" id="logoutBtn">
+                    <i class="fas fa-sign-out-alt"></i>
+                </button>
+            </div>
+        </aside>
+        
+        <!-- MAIN CONTENT - CONSOLE DE COMANDO -->
+        <main class="elite-main">
+            <header class="elite-header">
+                <div class="header-left">
+                    <button id="mobileMenuToggle" class="menu-toggle">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                    <h1 id="pageTitle">PAINEL DE COMANDO ESTRATÉGICO</h1>
+                </div>
+                <div class="header-right">
+                    <div class="header-stats">
+                        <div class="stat-item">
+                            <span class="stat-label" data-i18n="dashboard_active_cases">PROCESSOS ATIVOS</span>
+                            <span class="stat-value" id="headerActiveCases">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label" data-i18n="dashboard_dispute_value">VALOR EM DISPUTA</span>
+                            <span class="stat-value" id="headerDisputeValue">€0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label" data-i18n="dashboard_avg_prob">TAXA SUCESSO</span>
+                            <span class="stat-value" id="headerSuccessRate">0%</span>
+                        </div>
+                    </div>
+                    <div class="header-actions">
+                        <button id="langToggle" class="icon-btn" title="PT/EN">
+                            <i class="fas fa-language"></i>
+                        </button>
+                        <button id="btn-integrity-check" class="icon-btn" title="Verificação de Integridade">
+                            <i class="fas fa-shield-alt"></i>
+                        </button>
+                        <button id="exportReportBtn" class="icon-btn" title="Exportar Relatório Estratégico">
+                            <i class="fas fa-file-pdf"></i>
+                        </button>
+                        <button id="mobileExportBtn" class="icon-btn" title="Exportar para Dispositivo Móvel">
+                            <i class="fas fa-mobile-alt"></i>
+                        </button>
+                        <button id="settingsBtn" class="icon-btn" title="Configurações Avançadas">
+                            <i class="fas fa-cog"></i>
+                        </button>
+                    </div>
+                </div>
+            </header>
+            <div id="viewContainer" class="view-container"></div>
+        </main>
+    </div>
+    
+    <!-- MODAIS GLOBAIS -->
+    <div id="caseDetailModal" class="elite-modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-folder-open"></i> DETALHES DO PROCESSO</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body" id="caseDetailBody"></div>
+        </div>
+    </div>
+    
+    <div id="newClientModal" class="elite-modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-user-plus"></i> NOVO CLIENTE</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="newClientForm">
+                    <div class="form-group">
+                        <label>Nome do Cliente *</label>
+                        <input type="text" id="clientName" required>
+                    </div>
+                    <div class="form-group">
+                        <label>NIF / NIPC *</label>
+                        <input type="text" id="clientNif" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Valor da Causa (€) *</label>
+                        <input type="number" id="clientCaseValue" required>
+                    </div>
+                    <button type="submit" class="elite-btn primary full-width">CRIAR CLIENTE</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div id="notesModal" class="elite-modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-pen"></i> NOTAS ESTRATÉGICAS</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <textarea id="strategicNote" rows="4" placeholder="Escreva uma nota estratégica... (com hash SHA-256)"></textarea>
+                <button id="saveNoteBtn" class="elite-btn primary full-width">GUARDAR NOTA</button>
+                <div id="notesList" style="margin-top: 20px;"></div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="integrityModal" class="elite-modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-shield-alt"></i> VERIFICAÇÃO DE INTEGRIDADE</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body" id="integrityBody"></div>
+        </div>
+    </div>
+    
+    <div id="deadlineModal" class="elite-modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-calendar-plus"></i> NOVO PRAZO JUDICIAL</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="newDeadlineForm">
+                    <div class="form-group">
+                        <label>Processo</label>
+                        <select id="deadlineCaseId" required></select>
+                    </div>
+                    <div class="form-group">
+                        <label>Descrição do Prazo *</label>
+                        <input type="text" id="deadlineDescription" required placeholder="Ex: Contestação, Recurso, Alegações">
+                    </div>
+                    <div class="form-group">
+                        <label>Data Limite *</label>
+                        <input type="text" id="deadlineDate" class="datepicker" placeholder="DD/MM/YYYY" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Tipo de Prazo</label>
+                        <select id="deadlineType">
+                            <option value="judicial">Judicial (dias úteis)</option>
+                            <option value="civil">Civil (dias corridos)</option>
+                            <option value="procedural">Procedimental</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Notas Adicionais</label>
+                        <textarea id="deadlineNotes" rows="2"></textarea>
+                    </div>
+                    <button type="submit" class="elite-btn primary full-width">
+                        <i class="fas fa-save"></i> REGISTAR PRAZO
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div id="settingsModal" class="elite-modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-cog"></i> CONFIGURAÇÕES AVANÇADAS</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="settings-panel">
+                    <h4>API Keys</h4>
+                    <div class="form-group">
+                        <label>Chave API - Tribunal Digital</label>
+                        <input type="password" id="apiCourtKey" placeholder="••••••••">
+                    </div>
+                    <div class="form-group">
+                        <label>Webhook - Notificações</label>
+                        <input type="url" id="webhookUrl" placeholder="https://...">
+                    </div>
+                    <hr>
+                    <h4>Preferências do Sistema</h4>
+                    <div class="form-group">
+                        <label>Modo de Visualização</label>
+                        <select id="themeMode">
+                            <option value="dark">Modo Estratégico (Dark)</option>
+                            <option value="light">Modo Claro</option>
+                            <option value="auto">Automático</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Notificações por E-mail</label>
+                        <input type="checkbox" id="emailNotifications" checked> Receber alertas por e-mail
+                    </div>
+                    <button id="saveSettingsBtn" class="elite-btn primary full-width">GUARDAR CONFIGURAÇÕES</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="toastContainer" class="elite-toast-container"></div>
+    
+    <!-- ================================================================
+         SCRIPTS - ORDEM CORRIGIDA: MÓDULOS BASE PRIMEIRO, DEPOIS EXTENSÕES
+    ================================================================ -->
+    
+    <!-- 1. MÓDULOS BASE (Core e Componentes) -->
+    <script src="js_core_app.js"></script>
+    <script src="js_components_charts.js"></script>
+    <script src="js_components_tables.js"></script>
+    
+    <!-- 2. MÓDULOS DE NEGÓCIO (Base) -->
+    <script src="js_modules_predictive-litigation.js"></script>
+    <script src="js_modules_mass-litigation.js"></script>
+    <script src="js_modules_judicial-analytics.js"></script>
+    <script src="js_modules_fee-optimizer.js"></script>
+    <script src="js_modules_platform-intel.js"></script>
+    <script src="js_modules_practice-dashboard.js"></script>
+    <script src="js_modules_client-experience.js"></script>
+    <script src="js_modules_market-intelligence.js"></script>
+    <script src="js_modules_court-deadlines.js"></script>
+    <script src="js_modules_ai-assistant.js"></script>
+    <script src="js_modules_forensic-vault.js"></script>
+    <script src="js_modules_lead-intelligence.js"></script>
+    <script src="js_modules_gamification.js"></script>
+    
+    <!-- 3. MÓDULOS DE INOVAÇÃO DISRUPTIVA (v2.0.5) -->
+    <script src="js_modules_wargaming-engine.js"></script>
+    <script src="js_modules_judge-biometrics.js"></script>
+    <script src="js_modules_blockchain-custody.js"></script>
+    <script src="js_modules_quantum-analytics.js"></script>
+    
+    <!-- 4. EXTENSÕES E MÓDULOS DA ARQUITETURA DE VERDADE (v2.0.5) -->
+    <script src="js_modules_shadow-dossier.js"></script>
+    <script src="js_modules_black-swan.js"></script>
+    
+    <!-- 5. EXTENSÕES QUE DEPENDEM DOS MÓDULOS BASE -->
+    <script>
+        // Aguardar o carregamento completo antes de carregar as extensões
+        window.addEventListener('load', function() {
+            // Carregar extensões dinamicamente após os módulos base estarem prontos
+            const extensions = [
+                'js_modules_fee-optimizer-ext.js',
+                'js_modules_practice-dashboard-ext.js',
+                'js_modules_forensic-vault-ext.js'
+            ];
+            
+            extensions.forEach(function(src) {
+                const script = document.createElement('script');
+                script.src = src;
+                script.onerror = function() {
+                    console.warn('[ELITE] Extensão não encontrada:', src);
+                };
+                document.head.appendChild(script);
+            });
+        });
+    </script>
+    
+    <!-- SCRIPT DE INICIALIZAÇÃO -->
+    <script>
+        (function() {
+            'use strict';
+            
+            document.addEventListener('DOMContentLoaded', function() {
+                console.log('[ELITE PROBATUM] Unidade de Comando Estratégico — Inicializando v2.0.5');
+                
+                const authBtn = document.getElementById('authBtn');
+                const loginOverlay = document.getElementById('loginOverlay');
+                const appContainer = document.getElementById('appContainer');
+                const loginError = document.getElementById('loginError');
+                const usernameInput = document.getElementById('username');
+                const passwordInput = document.getElementById('password');
+                
+                const langPTBtn = document.getElementById('langPT');
+                const langENBtn = document.getElementById('langEN');
+                const langToggleHeader = document.getElementById('langToggle');
+                const integrityCheckBtn = document.getElementById('btn-integrity-check');
+                const settingsBtn = document.getElementById('settingsBtn');
+                const settingsModal = document.getElementById('settingsModal');
+                
+                let sessionId = null;
+                let deviceId = null;
+                
+                function generateSessionId() {
+                    return Date.now().toString(36) + Math.random().toString(36).substr(2, 16);
+                }
+                
+                function getDeviceId() {
+                    let device = localStorage.getItem('elite_device_id');
+                    if (!device) {
+                        device = 'DEV_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 8);
+                        localStorage.setItem('elite_device_id', device);
+                    }
+                    return device;
+                }
+                
+                function authenticate() {
+                    const username = usernameInput ? usernameInput.value.trim() : '';
+                    const password = passwordInput ? passwordInput.value.trim() : '';
+                    
+                    console.log('[ELITE PROBATUM] Autenticação solicitada:', username);
+                    
+                    if (username === 'admin' && password === 'probatum') {
+                        if (loginError) loginError.style.display = 'none';
+                        
+                        sessionId = generateSessionId();
+                        deviceId = getDeviceId();
+                        window.ELITE_SESSION_ID = sessionId;
+                        window.ELITE_DEVICE_ID = deviceId;
+                        
+                        const secureHash = CryptoJS.SHA256(sessionId + password + deviceId).toString();
+                        window.ELITE_SECURE_HASH = secureHash;
+                        
+                        loginOverlay.style.transition = 'opacity 0.3s ease';
+                        loginOverlay.style.opacity = '0';
+                        
+                        setTimeout(() => {
+                            loginOverlay.style.display = 'none';
+                            appContainer.style.display = 'flex';
+                            appContainer.classList.add('visible');
+                            
+                            const userNameSpan = document.getElementById('userName');
+                            const userRoleSpan = document.getElementById('userRole');
+                            if (userNameSpan) userNameSpan.textContent = 'Dr. Administrador';
+                            if (userRoleSpan) userRoleSpan.textContent = 'Super Utilizador · Acesso Total';
+                            
+                            if (window.EliteProbatum && typeof window.EliteProbatum.initDashboard === 'function') {
+                                window.EliteProbatum.initDashboard();
+                            }
+                            
+                            const activeCasesSpan = document.getElementById('headerActiveCases');
+                            const disputeValueSpan = document.getElementById('headerDisputeValue');
+                            const successRateSpan = document.getElementById('headerSuccessRate');
+                            const casesBadge = document.getElementById('casesBadge');
+                            
+                            if (activeCasesSpan) activeCasesSpan.textContent = '27';
+                            if (disputeValueSpan) disputeValueSpan.textContent = '€1.247.500';
+                            if (successRateSpan) successRateSpan.textContent = '72%';
+                            if (casesBadge) casesBadge.textContent = '27';
+                            
+                            if (window.EliteUtils && typeof window.EliteUtils.showToast === 'function') {
+                                window.EliteUtils.showToast('Unidade de Comando Ativa | 27 Processos Carregados', 'success');
+                            }
+                        }, 300);
+                        
+                        return true;
+                    } else {
+                        if (loginError) {
+                            loginError.style.display = 'block';
+                            loginError.textContent = window.EliteUtils && window.EliteUtils.t ? 
+                                window.EliteUtils.t('login_error') : 
+                                'ACESSO NEGADO — Credenciais inválidas. Utilize admin / probatum';
+                        }
+                        console.log('[ELITE PROBATUM] Falha na autenticação');
+                        return false;
+                    }
+                }
+                
+                if (langPTBtn) {
+                    langPTBtn.addEventListener('click', function() {
+                        if (window.EliteProbatum && typeof window.EliteProbatum.setLocale === 'function') {
+                            window.EliteProbatum.setLocale('pt');
+                        } else if (window.EliteUtils && typeof window.EliteUtils.setLocale === 'function') {
+                            window.EliteUtils.setLocale('pt');
+                        }
+                        langPTBtn.classList.add('active');
+                        langENBtn.classList.remove('active');
+                    });
+                }
+                
+                if (langENBtn) {
+                    langENBtn.addEventListener('click', function() {
+                        if (window.EliteProbatum && typeof window.EliteProbatum.setLocale === 'function') {
+                            window.EliteProbatum.setLocale('en');
+                        } else if (window.EliteUtils && typeof window.EliteUtils.setLocale === 'function') {
+                            window.EliteUtils.setLocale('en');
+                        }
+                        langENBtn.classList.add('active');
+                        langPTBtn.classList.remove('active');
+                    });
+                }
+                
+                if (langToggleHeader) {
+                    langToggleHeader.addEventListener('click', function() {
+                        if (window.EliteProbatum && typeof window.EliteProbatum.getLocale === 'function') {
+                            const currentLocale = window.EliteProbatum.getLocale();
+                            const newLocale = currentLocale === 'pt' ? 'en' : 'pt';
+                            window.EliteProbatum.setLocale(newLocale);
+                        } else if (window.EliteUtils && typeof window.EliteUtils.getLocale === 'function') {
+                            const currentLocale = window.EliteUtils.getLocale();
+                            const newLocale = currentLocale === 'pt' ? 'en' : 'pt';
+                            window.EliteUtils.setLocale(newLocale);
+                        }
+                    });
+                }
+                
+                if (authBtn) {
+                    authBtn.addEventListener('click', authenticate);
+                }
+                
+                if (usernameInput && passwordInput) {
+                    const handleEnter = (e) => {
+                        if (e.key === 'Enter') authenticate();
+                    };
+                    usernameInput.addEventListener('keypress', handleEnter);
+                    passwordInput.addEventListener('keypress', handleEnter);
+                }
+                
+                const requestBtn = document.getElementById('requestAccessBtn');
+                const accessModal = document.getElementById('accessRequestModal');
+                if (requestBtn && accessModal) {
+                    requestBtn.addEventListener('click', () => {
+                        loginOverlay.style.opacity = '0';
+                        setTimeout(() => {
+                            loginOverlay.style.display = 'none';
+                            accessModal.style.display = 'flex';
+                            accessModal.style.opacity = '1';
+                        }, 200);
+                    });
+                }
+                
+                document.querySelectorAll('.modal-close').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        const modal = btn.closest('.elite-modal');
+                        if (modal) modal.style.display = 'none';
+                    });
+                });
+                
+                document.querySelectorAll('.elite-modal').forEach(modal => {
+                    modal.addEventListener('click', (e) => {
+                        if (e.target === modal) modal.style.display = 'none';
+                    });
+                });
+                
+                const accessForm = document.getElementById('accessRequestForm');
+                if (accessForm) {
+                    accessForm.addEventListener('submit', (e) => {
+                        e.preventDefault();
+                        const name = document.getElementById('requestName')?.value || '';
+                        const email = document.getElementById('requestEmail')?.value || '';
+                        const nif = document.getElementById('requestNif')?.value || '';
+                        const role = document.getElementById('requestRole')?.value || '';
+                        const reason = document.getElementById('requestReason')?.value || '';
+                        
+                        if (name && email && nif) {
+                            const requestData = {
+                                id: Date.now(),
+                                name: name,
+                                email: email,
+                                nif: nif,
+                                role: role,
+                                reason: reason,
+                                deviceId: deviceId,
+                                timestamp: new Date().toISOString(),
+                                status: 'pending'
+                            };
+                            
+                            const requests = JSON.parse(localStorage.getItem('elite_access_requests') || '[]');
+                            requests.push(requestData);
+                            localStorage.setItem('elite_access_requests', JSON.stringify(requests));
+                            
+                            alert(`[COMANDO] Pedido de acesso registado.\n\nID: ${requestData.id}\nNome: ${name}\nE-mail: ${email}\n\nO Master Hash Controller irá analisar e responder em até 48h.`);
+                            accessModal.style.display = 'none';
+                            accessForm.reset();
+                            loginOverlay.style.display = 'flex';
+                            loginOverlay.style.opacity = '1';
+                        } else {
+                            alert('[COMANDO] Preencha todos os campos obrigatórios (Nome, E-mail, NIF).');
+                        }
+                    });
+                }
+                
+                const logoutBtn = document.getElementById('logoutBtn');
+                if (logoutBtn) {
+                    logoutBtn.addEventListener('click', () => {
+                        if (confirm('[COMANDO] Terminar sessão?')) {
+                            sessionId = null;
+                            window.ELITE_SESSION_ID = null;
+                            window.ELITE_SECURE_HASH = null;
+                            appContainer.style.display = 'none';
+                            loginOverlay.style.display = 'flex';
+                            loginOverlay.style.opacity = '1';
+                            if (usernameInput) usernameInput.value = '';
+                            if (passwordInput) passwordInput.value = '';
+                            
+                            if (window.CourtDeadlines && typeof window.CourtDeadlines.stopMonitoring === 'function') {
+                                window.CourtDeadlines.stopMonitoring();
+                            }
+                        }
+                    });
+                }
+                
+                const mobileExportBtn = document.getElementById('mobileExportBtn');
+                if (mobileExportBtn) {
+                    mobileExportBtn.addEventListener('click', () => {
+                        if (window.EliteProbatum && typeof window.EliteProbatum.exportToRegisteredDevice === 'function') {
+                            window.EliteProbatum.exportToRegisteredDevice();
+                        } else if (window.EliteProbatum && typeof window.EliteProbatum.exportCurrentViewToMobile === 'function') {
+                            window.EliteProbatum.exportCurrentViewToMobile();
+                        } else {
+                            alert('[COMANDO] Funcionalidade de exportação para dispositivo móvel em desenvolvimento.');
+                        }
+                    });
+                }
+                
+                if (integrityCheckBtn) {
+                    integrityCheckBtn.addEventListener('click', () => {
+                        if (window.ForensicVault && typeof window.ForensicVault.verifySystemIntegrity === 'function') {
+                            window.ForensicVault.verifySystemIntegrity();
+                        } else if (window.BlockchainCustody && typeof window.BlockchainCustody.verifySystemIntegrity === 'function') {
+                            window.BlockchainCustody.verifySystemIntegrity();
+                        } else {
+                            alert('[COMANDO] Módulo de verificação de integridade não disponível.');
+                        }
+                    });
+                }
+                
+                if (settingsBtn && settingsModal) {
+                    settingsBtn.addEventListener('click', () => {
+                        settingsModal.style.display = 'flex';
+                    });
+                }
+                
+                const saveSettingsBtn = document.getElementById('saveSettingsBtn');
+                if (saveSettingsBtn) {
+                    saveSettingsBtn.addEventListener('click', () => {
+                        const apiCourtKey = document.getElementById('apiCourtKey')?.value;
+                        const webhookUrl = document.getElementById('webhookUrl')?.value;
+                        const themeMode = document.getElementById('themeMode')?.value;
+                        const emailNotifications = document.getElementById('emailNotifications')?.checked;
+                        
+                        const settings = {
+                            apiCourtKey: apiCourtKey ? CryptoJS.SHA256(apiCourtKey).toString() : null,
+                            webhookUrl: webhookUrl,
+                            themeMode: themeMode,
+                            emailNotifications: emailNotifications,
+                            updatedAt: new Date().toISOString()
+                        };
+                        
+                        if (window.SecureStorageInstance) {
+                            window.SecureStorageInstance.setItem('user_settings', settings);
+                        } else {
+                            localStorage.setItem('elite_settings', JSON.stringify(settings));
+                        }
+                        
+                        if (window.EliteUtils) {
+                            window.EliteUtils.showToast('Configurações guardadas com sucesso!', 'success');
+                        }
+                        settingsModal.style.display = 'none';
+                    });
+                }
+                
+                console.log('[ELITE PROBATUM] Unidade de Comando Estratégica pronta v2.0.5. Aguardando autenticação.');
+            });
+        })();
+    </script>
+</body>
+</html>
