@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * ELITE PROBATUM v2.0.5 — SERVICE WORKER
+ * ELITE PROBATUM v2.0.5 — SERVICE WORKER (SEGURO)
  * PWA OFFLINE-FIRST PARA ACESSO EM AUDIÊNCIA
  * ============================================================================
  * Funcionalidades:
@@ -16,13 +16,15 @@ const STATIC_CACHE = `elite-static-${CACHE_VERSION}`;
 const DYNAMIC_CACHE = `elite-dynamic-${CACHE_VERSION}`;
 const CASE_CACHE = `elite-cases-${CACHE_VERSION}`;
 
-// Recursos estáticos a serem cacheados na instalação
+// Recursos estáticos a serem cacheados na instalação (atualizados)
 const STATIC_ASSETS = [
     '/',
     '/index.html',
     '/css_main.css',
     '/css_components.css',
     '/js_core_app.js',
+    '/js_auth.js',
+    '/js_modules_rbac.js',
     '/js_components_charts.js',
     '/js_components_tables.js',
     '/js_modules_ai-assistant.js',
@@ -43,6 +45,36 @@ const STATIC_ASSETS = [
     '/js_modules_shadow-dossier.js',
     '/js_modules_strategic-vault.js',
     '/js_modules_value-efficiency.js',
+    '/js_modules_fee-optimizer.js',
+    '/js_modules_practice-dashboard.js',
+    '/js_modules_forensic-vault.js',
+    '/js_modules_wargaming-engine.js',
+    '/js_modules_forensic-vault-ext.js',
+    '/js_modules_fee-optimizer-ext.js',
+    '/js_modules_practice-dashboard-ext.js',
+    '/js_modules_platform-intel-ext.js',
+    '/js_modules_black-swan-ext.js',
+    '/js_modules_quantum-analytics-ext.js',
+    '/js_modules_mass-litigation-ext.js',
+    '/js_modules_ai-assistant-ext.js',
+    '/js_modules_client-experience-ext.js',
+    '/js_modules_gamification-ext.js',
+    '/js_modules_market-intelligence-ext.js',
+    '/js_modules_lead-intelligence-ext.js',
+    '/js_modules_court-deadlines-ext.js',
+    '/js_modules_judge-biometrics-ext.js',
+    '/js_modules_judicial-analytics-ext.js',
+    '/js_modules_neural-litigation-ext.js',
+    '/js_modules_risk-mitigation-ext.js',
+    '/js_modules_platform-intel-ext-ext.js',
+    '/js_modules_quantum-analytics-ext-ext.js',
+    '/js_modules_mass-litigation-ext-ext.js',
+    '/js_modules_lead-intelligence-ext-ext.js',
+    '/js_modules_court-deadlines-ext-ext.js',
+    '/js_modules_client-experience-ext-ext.js',
+    '/js_modules_gamification-ext-ext.js',
+    '/js_modules_market-intelligence-ext-ext.js',
+    '/js_modules_practice-dashboard-ext-ext.js',
     'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap',
     'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css',
     'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js',
@@ -477,4 +509,4 @@ async function getCacheSize(cache) {
     return size;
 }
 
-console.log('[ServiceWorker] ELITE PROBATUM Service Worker carregado');
+console.log('[ServiceWorker] ELITE PROBATUM Service Worker carregado (Modo Seguro)');
