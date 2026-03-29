@@ -1,438 +1,115 @@
 <!DOCTYPE html>
-<html lang="pt-PT">
+<html lang="pt-PT" id="htmlRoot">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="description" content="ELITE PROBATUM v2.0.5 — Unidade de Comando Estratégico">
     <meta name="author" content="ELITE PROBATUM">
-    <meta name="theme-color" content="#00e5ff">
-    <link rel="manifest" href="/manifest.json">
-    <!-- CSP agora é gerida pelo servidor (server.js). Removida do meta para evitar duplicação -->
-    <meta name="referrer" content="strict-origin-when-cross-origin">
-    <title>ELITE PROBATUM | Unidade de Comando Estratégico</title>
+    <title>ELITE PROBATUM | Unidade de Comando Estratégico v2.0.5</title>
     
-    <!-- Favicon -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚖️</text></svg>">
     
-    <!-- Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style_additions.css">
     
-    <!-- CSS Locais -->
-    <link rel="stylesheet" href="css_main.css">
-    <link rel="stylesheet" href="css_components.css">
-    
-    <!-- Vendors CDN -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.4/moment.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-    <script src="https://cdn.jsdelivr.net/npm/localforage@1.10.0/dist/localforage.min.js"></script>
-</head>
-<body>
-    
-    <!-- GATEKEEPER SECURE - LOGIN ESTRATÉGICO -->
-    <div id="loginOverlay" class="gatekeeper-secure">
-        <div class="login-card">
-            <div class="login-logo">
-                <i class="fas fa-crown"></i>
-                <span>ELITE <span class="logo-highlight">PROBATUM</span></span>
-            </div>
-            <div class="version-badge">v2.0.5 · UNIDADE DE COMANDO ESTRATÉGICO</div>
-            <p class="subtitle" data-i18n="login_subtitle">Acesso restrito a pessoal autorizado</p>
-            
-            <div class="form-group">
-                <label data-i18n="login_user">UTILIZADOR</label>
-                <input type="text" id="username" placeholder="admin" autocomplete="off">
-            </div>
-            <div class="form-group">
-                <label data-i18n="login_password">PALAVRA-PASSE</label>
-                <input type="password" id="password" placeholder="••••••••" autocomplete="off">
-            </div>
-            <div class="form-group">
-                <label>TELEMÓVEL PARA AUTENTICAÇÃO 2FA</label>
-                <input type="tel" id="mobilePhone" placeholder="+351 912 345 678" value="">
-                <small style="color: #64748b; font-size: 0.6rem; display: block; margin-top: 4px;">O sistema validará este número com o registado na base de dados.</small>
-            </div>
-            
-            <div id="loginError" class="login-error" style="display: none;" data-i18n="login_error">ACESSO NEGADO — Credenciais inválidas</div>
-            
-            <button id="authBtn" class="elite-btn primary full-width">
-                <i class="fas fa-key"></i> <span data-i18n="login_button">AUTENTICAR</span>
-            </button>
-            
-            <div class="request-access">
-                <button id="requestAccessBtn" class="elite-btn secondary full-width request-access-btn">
-                    <i class="fas fa-user-plus"></i> <span data-i18n="login_request">SOLICITAR ACESSO</span>
-                </button>
-                <p class="access-hint">O pedido será enviado ao Master Hash Controller</p>
-            </div>
-            
-            <div class="language-selector">
-                <button id="langPT" class="lang-btn active" data-locale="pt">🇵🇹 PORTUGUÊS</button>
-                <button id="langEN" class="lang-btn" data-locale="en">🇬🇧 ENGLISH</button>
-            </div>
-            
-            <div class="security-badge">
-                <i class="fas fa-shield-alt"></i> <span data-i18n="login_security">ENCRIPTADO AES-256 · CANAL SEGURO · JWT · PBKDF2</span>
-            </div>
-        </div>
-    </div>
-    
-    <!-- MODAL DE PEDIDO DE ACESSO -->
-    <div id="accessRequestModal" class="elite-modal" style="display: none;">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3><i class="fas fa-user-plus"></i> Solicitar Acesso</h3>
-                <button class="modal-close">&times;</button>
-            </div>
-            <div class="modal-body">
-                <form id="accessRequestForm">
-                    <div class="form-group"><label>Nome Completo *</label><input type="text" id="requestName" required></div>
-                    <div class="form-group"><label>E-mail Institucional *</label><input type="email" id="requestEmail" required></div>
-                    <div class="form-group"><label>Telemóvel (para notificações) *</label><input type="tel" id="requestPhone" placeholder="+351 912 345 678" required></div>
-                    <div class="form-group"><label>NIF / NIPC *</label><input type="text" id="requestNif" required></div>
-                    <div class="form-group"><label>Cargo / Função</label><input type="text" id="requestRole" placeholder="Ex: Sócio, Advogado, Estagiário"></div>
-                    <div class="form-group"><label>Justificação de Acesso</label><textarea id="requestReason" rows="3" placeholder="Motivo pelo qual necessita de aceder à metodologia..."></textarea></div>
-                    <button type="submit" class="elite-btn primary full-width"><i class="fas fa-paper-plane"></i> ENVIAR PEDIDO</button>
-                </form>
-            </div>
-        </div>
-    </div>
-    
-    <!-- MODAL DE AUTENTICAÇÃO 2FA (Simulado, agora apenas feedback) -->
-    <div id="twoFactorModal" class="elite-modal" style="display: none;">
-        <div class="modal-content" style="max-width: 400px;">
-            <div class="modal-header"><h3><i class="fas fa-mobile-alt"></i> AUTENTICAÇÃO DE DOIS FATORES</h3><button class="modal-close">&times;</button></div>
-            <div class="modal-body"><p style="text-align:center;margin-bottom:20px;">Enviamos um código de verificação para o seu telemóvel (SIMULADO)</p>
-            <div class="form-group"><label>Código de Verificação</label><input type="text" id="twoFactorCode" placeholder="000000" maxlength="6" style="text-align:center;font-size:1.2rem;letter-spacing:4px;"></div>
-            <button id="verifyTwoFactorBtn" class="elite-btn primary full-width"><i class="fas fa-check-circle"></i> VERIFICAR</button>
-            <button id="resendCodeBtn" class="elite-btn secondary full-width" style="margin-top:12px;"><i class="fas fa-redo"></i> REENVIAR CÓDIGO</button></div>
-        </div>
-    </div>
-    
-    <!-- MODAIS PRINCIPAIS -->
-    <div id="aiPredictionModal" class="elite-modal" style="display: none;"><div class="modal-content" style="max-width: 800px;"><div class="modal-header"><h3><i class="fas fa-brain"></i> ANÁLISE PREDITIVA AVANÇADA</h3><button class="modal-close">&times;</button></div><div class="modal-body" id="aiPredictionBody"></div></div></div>
-    <div id="leadCaptureModal" class="elite-modal" style="display: none;"><div class="modal-content"><div class="modal-header"><h3><i class="fas fa-chart-line"></i> INTELIGÊNCIA DE MERCADO · LEADS QUENTES</h3><button class="modal-close">&times;</button></div><div class="modal-body" id="leadCaptureBody"></div></div></div>
-    <div id="caseDetailModal" class="elite-modal" style="display: none;"><div class="modal-content"><div class="modal-header"><h3><i class="fas fa-folder-open"></i> DETALHES DO PROCESSO</h3><button class="modal-close">&times;</button></div><div class="modal-body" id="caseDetailBody"></div></div></div>
-    <div id="newClientModal" class="elite-modal" style="display: none;"><div class="modal-content"><div class="modal-header"><h3><i class="fas fa-user-plus"></i> NOVO CLIENTE</h3><button class="modal-close">&times;</button></div><div class="modal-body"><form id="newClientForm"><div class="form-group"><label>Nome do Cliente *</label><input type="text" id="clientName" required></div><div class="form-group"><label>NIF / NIPC *</label><input type="text" id="clientNif" required></div><div class="form-group"><label>Valor da Causa (€) *</label><input type="number" id="clientCaseValue" required></div><button type="submit" class="elite-btn primary full-width">CRIAR CLIENTE</button></form></div></div></div>
-    <div id="notesModal" class="elite-modal" style="display: none;"><div class="modal-content"><div class="modal-header"><h3><i class="fas fa-pen"></i> NOTAS ESTRATÉGICAS</h3><button class="modal-close">&times;</button></div><div class="modal-body"><textarea id="strategicNote" rows="4" placeholder="Escreva uma nota estratégica... (com hash SHA-256)"></textarea><button id="saveNoteBtn" class="elite-btn primary full-width">GUARDAR NOTA</button><div id="notesList" style="margin-top:20px;"></div></div></div></div>
-    <div id="integrityModal" class="elite-modal" style="display: none;"><div class="modal-content"><div class="modal-header"><h3><i class="fas fa-shield-alt"></i> VERIFICAÇÃO DE INTEGRIDADE</h3><button class="modal-close">&times;</button></div><div class="modal-body" id="integrityBody"></div></div></div>
-    <div id="deadlineModal" class="elite-modal" style="display: none;"><div class="modal-content"><div class="modal-header"><h3><i class="fas fa-calendar-plus"></i> NOVO PRAZO JUDICIAL</h3><button class="modal-close">&times;</button></div><div class="modal-body"><form id="newDeadlineForm"><div class="form-group"><label>Processo</label><select id="deadlineCaseId" required></select></div><div class="form-group"><label>Descrição do Prazo *</label><input type="text" id="deadlineDescription" required placeholder="Ex: Contestação, Recurso, Alegações"></div><div class="form-group"><label>Data Limite *</label><input type="text" id="deadlineDate" class="datepicker" placeholder="DD/MM/YYYY" required></div><div class="form-group"><label>Tipo de Prazo</label><select id="deadlineType"><option value="judicial">Judicial (dias úteis)</option><option value="civil">Civil (dias corridos)</option><option value="procedural">Procedimental</option></select></div><div class="form-group"><label>Notas Adicionais</label><textarea id="deadlineNotes" rows="2"></textarea></div><button type="submit" class="elite-btn primary full-width"><i class="fas fa-save"></i> REGISTAR PRAZO</button></form></div></div></div>
-    <div id="settingsModal" class="elite-modal" style="display: none;"><div class="modal-content"><div class="modal-header"><h3><i class="fas fa-cog"></i> CONFIGURAÇÕES AVANÇADAS</h3><button class="modal-close">&times;</button></div><div class="modal-body"><div class="settings-panel"><h4>API Keys</h4><div class="form-group"><label>Chave API - Tribunal Digital</label><input type="password" id="apiCourtKey" placeholder="••••••••"></div><div class="form-group"><label>Webhook - Notificações</label><input type="url" id="webhookUrl" placeholder="https://..."></div><hr><h4>Preferências do Sistema</h4><div class="form-group"><label>Modo de Visualização</label><select id="themeMode"><option value="dark">Modo Estratégico (Dark)</option><option value="light">Modo Claro</option><option value="auto">Automático</option></select></div><div class="form-group"><label>Notificações por Telemóvel</label><input type="checkbox" id="smsNotifications" checked> Receber alertas via SMS</div><div class="form-group"><label>Notificações por E-mail</label><input type="checkbox" id="emailNotifications" checked> Receber alertas por e-mail</div><button id="saveSettingsBtn" class="elite-btn primary full-width">GUARDAR CONFIGURAÇÕES</button></div></div></div></div>
-    
-    <div id="toastContainer" class="elite-toast-container"></div>
-    
-    <!-- MAIN APP CONTAINER -->
-    <div id="appContainer" class="elite-app" style="display: none;">
-        <aside class="elite-sidebar">
-            <div class="sidebar-logo"><i class="fas fa-crown"></i><span>ELITE<span class="elite-light">PROBATUM</span></span><span class="version-tag">v2.0.5</span></div>
-            <nav class="sidebar-nav">
-                <a href="#" class="nav-item active" data-view="dashboard"><i class="fas fa-chart-pie"></i><span>PAINEL DE COMANDO</span></a>
-                <a href="#" class="nav-item" data-view="cases"><i class="fas fa-folder-open"></i><span>PROCESSOS</span><span class="nav-badge" id="casesBadge">0</span></a>
-                <a href="#" class="nav-item" data-view="insolvency"><i class="fas fa-chart-line"></i><span>INSOLVÊNCIAS (CIRE)</span></a>
-                <a href="#" class="nav-item" data-view="labor"><i class="fas fa-briefcase"></i><span>CONTENCIOSO LABORAL</span></a>
-                <a href="#" class="nav-item" data-view="litigation"><i class="fas fa-brain"></i><span>INTELIGÊNCIA DE LITÍGIO</span></a>
-                <a href="#" class="nav-item" data-view="questionnaire"><i class="fas fa-question-circle"></i><span>QUESTIONÁRIOS ESTRATÉGICOS</span></a>
-                <a href="#" class="nav-item" data-view="evidence"><i class="fas fa-link"></i><span>CADEIA DE CUSTÓDIA</span></a>
-                <a href="#" class="nav-item" data-view="adversary"><i class="fas fa-users"></i><span>ANÁLISE DE OPOSIÇÃO</span></a>
-                <a href="#" class="nav-item" data-view="simulator"><i class="fas fa-flask"></i><span>SIMULADOR DE RISCO</span></a>
-                <a href="#" class="nav-item" data-view="deadlines"><i class="fas fa-calendar-alt"></i><span>PRAZOS JUDICIAIS</span></a>
-                <a href="#" class="nav-item" data-view="activitylog"><i class="fas fa-history"></i><span>REGISTOS RGPD</span></a>
-                <a href="#" class="nav-item" data-view="truth_architecture"><i class="fas fa-chess-queen"></i><span>ARQUITETURA DE VERDADE</span></a>
-                <a href="#" class="nav-item" data-view="value_dashboard"><i class="fas fa-chart-line"></i><span>GERAÇÃO DE VALOR</span></a>
-                <a href="#" class="nav-item" data-view="admin"><i class="fas fa-skull"></i><span>ADMINISTRAÇÃO</span></a>
-            </nav>
-            <div class="sidebar-footer"><div class="lawyer-info"><i class="fas fa-user-shield"></i><div><strong id="userName">Dr. Administrador</strong><small id="userRole">Super Utilizador · Acesso Total</small><small id="userPhone" style="font-size:0.55rem;color:#00e5ff;display:block;"></small></div></div><button class="logout-btn" id="logoutBtn"><i class="fas fa-sign-out-alt"></i></button></div>
-        </aside>
-        <main class="elite-main">
-            <header class="elite-header">
-                <div class="header-left"><button id="mobileMenuToggle" class="menu-toggle"><i class="fas fa-bars"></i></button><h1 id="pageTitle">PAINEL DE COMANDO ESTRATÉGICO</h1></div>
-                <div class="header-right">
-                    <div class="header-stats"><div class="stat-item"><span class="stat-label">PROCESSOS ATIVOS</span><span class="stat-value" id="headerActiveCases">0</span></div><div class="stat-item"><span class="stat-label">VALOR EM DISPUTA</span><span class="stat-value" id="headerDisputeValue">€0</span></div><div class="stat-item"><span class="stat-label">TAXA SUCESSO</span><span class="stat-value" id="headerSuccessRate">0%</span></div></div>
-                    <div class="header-actions"><button id="langToggle" class="icon-btn" title="PT/EN"><i class="fas fa-language"></i></button><button id="btn-integrity-check" class="icon-btn" title="Verificação de Integridade"><i class="fas fa-shield-alt"></i></button><button id="exportReportBtn" class="icon-btn" title="Exportar Relatório Estratégico"><i class="fas fa-file-pdf"></i></button><button id="mobileExportBtn" class="icon-btn" title="Exportar para Dispositivo Móvel"><i class="fas fa-mobile-alt"></i></button><button id="settingsBtn" class="icon-btn" title="Configurações Avançadas"><i class="fas fa-cog"></i></button></div>
-                </div>
-            </header>
-            <div id="viewContainer" class="view-container"></div>
-        </main>
-    </div>
-    
-    <!-- SCRIPTS - TODOS OS MÓDULOS -->
-    <!-- Core -->
-    <script src="js_auth.js"></script>
-    <script src="js_modules_rbac.js"></script>
-    <script src="js_core_app.js"></script>
-    <script src="js_components_charts.js"></script>
-    <script src="js_components_tables.js"></script>
-    
-    <!-- Módulos Principais (21) -->
-    <script src="js_modules_ai-assistant.js"></script>
-    <script src="js_modules_black-swan.js"></script>
-    <script src="js_modules_blockchain-custody.js"></script>
-    <script src="js_modules_client-experience.js"></script>
-    <script src="js_modules_court-deadlines.js"></script>
-    <script src="js_modules_gamification.js"></script>
-    <script src="js_modules_judge-biometrics.js"></script>
-    <script src="js_modules_judicial-analytics.js"></script>
-    <script src="js_modules_lead-intelligence.js"></script>
-    <script src="js_modules_market-intelligence.js"></script>
-    <script src="js_modules_mass-litigation.js"></script>
-    <script src="js_modules_neural-litigation.js"></script>
-    <script src="js_modules_platform-intel.js"></script>
-    <script src="js_modules_quantum-analytics.js"></script>
-    <script src="js_modules_risk-mitigation.js"></script>
-    <script src="js_modules_shadow-dossier.js"></script>
-    <script src="js_modules_strategic-vault.js"></script>
-    <script src="js_modules_value-efficiency.js"></script>
-    <script src="js_modules_fee-optimizer.js"></script>
-    <script src="js_modules_practice-dashboard.js"></script>
-    <script src="js_modules_forensic-vault.js"></script>
-    <script src="js_modules_wargaming-engine.js"></script>
-    
-    <!-- Extensões (29) -->
-    <script src="js_modules_forensic-vault-ext.js"></script>
-    <script src="js_modules_fee-optimizer-ext.js"></script>
-    <script src="js_modules_practice-dashboard-ext.js"></script>
-    <script src="js_modules_platform-intel-ext.js"></script>
-    <script src="js_modules_black-swan-ext.js"></script>
-    <script src="js_modules_quantum-analytics-ext.js"></script>
-    <script src="js_modules_mass-litigation-ext.js"></script>
-    <script src="js_modules_ai-assistant-ext.js"></script>
-    <script src="js_modules_client-experience-ext.js"></script>
-    <script src="js_modules_gamification-ext.js"></script>
-    <script src="js_modules_market-intelligence-ext.js"></script>
-    <script src="js_modules_lead-intelligence-ext.js"></script>
-    <script src="js_modules_court-deadlines-ext.js"></script>
-    <script src="js_modules_judge-biometrics-ext.js"></script>
-    <script src="js_modules_judicial-analytics-ext.js"></script>
-    <script src="js_modules_neural-litigation-ext.js"></script>
-    <script src="js_modules_risk-mitigation-ext.js"></script>
-    <script src="js_modules_platform-intel-ext-ext.js"></script>
-    <script src="js_modules_quantum-analytics-ext-ext.js"></script>
-    <script src="js_modules_mass-litigation-ext-ext.js"></script>
-    <script src="js_modules_lead-intelligence-ext-ext.js"></script>
-    <script src="js_modules_court-deadlines-ext-ext.js"></script>
-    <script src="js_modules_client-experience-ext-ext.js"></script>
-    <script src="js_modules_gamification-ext-ext.js"></script>
-    <script src="js_modules_market-intelligence-ext-ext.js"></script>
-    <script src="js_modules_practice-dashboard-ext-ext.js"></script>
-    
-    <!-- Service Worker Registration -->
-    <script>
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/service-worker.js').then(reg => {
-                console.log('[ELITE] Service Worker registado:', reg.scope);
-            }).catch(err => {
-                console.error('[ELITE] Erro no Service Worker:', err);
-            });
+    <style>
+        /* Login Wall Overlayer */
+        #loginWall {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #020617; z-index: 9999; display: flex;
+            align-items: center; justify-content: center;
         }
-    </script>
-    
-    <!-- Script Principal de Autenticação e Inicialização -->
+        .login-card {
+            background: rgba(15, 23, 42, 0.9);
+            padding: 2.5rem; border-radius: 12px;
+            border: 1px solid #00e5ff; width: 100%; max-width: 400px;
+            box-shadow: 0 0 30px rgba(0, 229, 255, 0.2);
+        }
+        .login-card h2 { color: #00e5ff; margin-bottom: 1.5rem; text-align: center; font-family: 'JetBrains Mono', monospace; }
+        .input-group { margin-bottom: 1rem; }
+        .input-group label { display: block; color: #94a3b8; margin-bottom: 0.5rem; font-size: 0.8rem; }
+        .input-group input { 
+            width: 100%; padding: 0.75rem; background: #1e293b; border: 1px solid #334155;
+            color: white; border-radius: 4px; outline: none;
+        }
+        .input-group input:focus { border-color: #00e5ff; }
+        .btn-login {
+            width: 100%; padding: 0.8rem; background: #00e5ff; border: none;
+            color: #020617; font-weight: bold; cursor: pointer; border-radius: 4px;
+            margin-top: 1rem; transition: 0.3s;
+        }
+        .btn-login:hover { background: #00b8cc; }
+        #loginError { color: #ef4444; font-size: 0.85rem; margin-top: 1rem; text-align: center; display: none; }
+    </style>
+</head>
+<body class="probatum-v2">
+
+    <div id="loginWall">
+        <div class="login-card">
+            <h2>UNIFED PROBATUM</h2>
+            <div class="input-group">
+                <label>Utilizador</label>
+                <input type="text" id="userIn" placeholder="admin">
+            </div>
+            <div class="input-group">
+                <label>Password</label>
+                <input type="password" id="passIn" placeholder="••••••••">
+            </div>
+            <button class="btn-login" onclick="handleLogin()">ENTRAR NO COFRE</button>
+            <div id="loginError">Acesso negado. Verifique as credenciais.</div>
+        </div>
+    </div>
+
+    <div id="appContent" style="display:none;">
+        <div id="pureDashboardWrapper">
+            </div>
+    </div>
+
+    <script src="js_auth.js"></script>
+    <script src="js_core_app.js"></script>
+    <script src="script.js"></script>
+    <script src="script_injection.js"></script>
+    <script src="unifed_triada_export.js"></script>
+    <script src="nexus.js"></script>
+    <script src="enrichment.js"></script>
+
     <script>
-        (async function() {
-            'use strict';
-            
-            // Tentar auto-login primeiro
-            const autoLogged = await window.AuthClient.tryAutoLogin();
-            
-            if (autoLogged) {
-                // Se já existe sessão, esconder login e mostrar app
-                document.getElementById('loginOverlay').style.display = 'none';
-                document.getElementById('appContainer').style.display = 'flex';
-                if (window.EliteProbatum && window.EliteProbatum.initDashboard) {
-                    window.EliteProbatum.initDashboard();
-                }
-            } else {
-                // Mostrar overlay de login e configurar handlers
-                document.getElementById('loginOverlay').style.display = 'flex';
-                
-                // Handler do botão de autenticação
-                document.getElementById('authBtn').addEventListener('click', async () => {
-                    const username = document.getElementById('username').value.trim();
-                    const password = document.getElementById('password').value.trim();
-                    const mobile = document.getElementById('mobilePhone').value.trim();
-                    const loginError = document.getElementById('loginError');
+        /**
+         * Lógica de Intermediação de Login v2.0.5
+         */
+        async function handleLogin() {
+            const u = document.getElementById('userIn').value;
+            const p = document.getElementById('passIn').value;
+            const err = document.getElementById('loginError');
+
+            try {
+                const result = await window.AuthClient.login(u, p);
+                if (result.success) {
+                    document.getElementById('loginWall').style.display = 'none';
+                    document.getElementById('appContent').style.display = 'block';
                     
-                    if (!username || !password) {
-                        loginError.style.display = 'block';
-                        loginError.textContent = 'Preencha o utilizador e a palavra-passe.';
-                        return;
-                    }
-                    
-                    loginError.style.display = 'none';
-                    
-                    const result = await window.AuthClient.login(username, password, mobile);
-                    
-                    if (result.success) {
-                        // Login bem sucedido
-                        document.getElementById('loginOverlay').style.opacity = '0';
-                        setTimeout(() => {
-                            document.getElementById('loginOverlay').style.display = 'none';
-                            document.getElementById('appContainer').style.display = 'flex';
-                            if (window.EliteProbatum && window.EliteProbatum.initDashboard) {
-                                window.EliteProbatum.initDashboard();
-                            }
-                            if (window.EliteUtils) {
-                                window.EliteUtils.showToast(`Bem-vindo, ${result.user.name}`, 'success');
-                            }
-                        }, 300);
-                    } else {
-                        loginError.style.display = 'block';
-                        loginError.textContent = result.error || 'Credenciais inválidas. Tente novamente.';
-                    }
-                });
-            }
-            
-            // Logout
-            document.getElementById('logoutBtn')?.addEventListener('click', async () => {
-                if (confirm('Terminar sessão?')) {
-                    await window.AuthClient.logout();
-                    document.getElementById('appContainer').style.display = 'none';
-                    document.getElementById('loginOverlay').style.display = 'flex';
-                    document.getElementById('username').value = '';
-                    document.getElementById('password').value = '';
-                    document.getElementById('mobilePhone').value = '';
-                    if (window.EliteProbatum && window.EliteProbatum.resetState) {
-                        window.EliteProbatum.resetState();
+                    // Ativa o motor pericial v13.5.0-PURE após entrada
+                    if (window._activatePurePanel) {
+                        window._activatePurePanel();
+                    } else if (window.loadAnonymizedRealCase) {
+                        window.loadAnonymizedRealCase();
                     }
                 }
-            });
-            
-            // Restante lógica de modais, etc. (igual à original, mantida)
-            document.querySelectorAll('.modal-close').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    const modal = btn.closest('.elite-modal');
-                    if (modal) modal.style.display = 'none';
-                });
-            });
-            
-            document.querySelectorAll('.elite-modal').forEach(modal => {
-                modal.addEventListener('click', (e) => {
-                    if (e.target === modal) modal.style.display = 'none';
-                });
-            });
-            
-            const requestBtn = document.getElementById('requestAccessBtn');
-            const accessModal = document.getElementById('accessRequestModal');
-            if (requestBtn && accessModal) {
-                requestBtn.addEventListener('click', () => {
-                    document.getElementById('loginOverlay').style.opacity = '0';
-                    setTimeout(() => {
-                        document.getElementById('loginOverlay').style.display = 'none';
-                        accessModal.style.display = 'flex';
-                    }, 200);
-                });
+            } catch (e) {
+                err.style.display = 'block';
+                console.error('[SECURITY] Falha na tentativa de intrusão.');
             }
-            
-            const accessForm = document.getElementById('accessRequestForm');
-            if (accessForm) {
-                accessForm.addEventListener('submit', (e) => {
-                    e.preventDefault();
-                    const name = document.getElementById('requestName')?.value || '';
-                    const email = document.getElementById('requestEmail')?.value || '';
-                    const phone = document.getElementById('requestPhone')?.value || '';
-                    const nif = document.getElementById('requestNif')?.value || '';
-                    const role = document.getElementById('requestRole')?.value || '';
-                    const reason = document.getElementById('requestReason')?.value || '';
-                    
-                    if (name && email && phone && nif) {
-                        const requestData = {
-                            id: Date.now(),
-                            name,
-                            email,
-                            phone,
-                            nif,
-                            role,
-                            reason,
-                            deviceId: window.ELITE_DEVICE_ID || 'unknown',
-                            timestamp: new Date().toISOString(),
-                            status: 'pending'
-                        };
-                        const requests = JSON.parse(localStorage.getItem('elite_access_requests') || '[]');
-                        requests.push(requestData);
-                        localStorage.setItem('elite_access_requests', JSON.stringify(requests));
-                        alert(`[COMANDO] Pedido registado.\nID: ${requestData.id}\nNome: ${name}\nE-mail: ${email}\nTelemóvel: ${phone}\n\nO Master Hash Controller analisará e responderá em até 48h.`);
-                        accessModal.style.display = 'none';
-                        accessForm.reset();
-                        document.getElementById('loginOverlay').style.display = 'flex';
-                    } else {
-                        alert('Preencha todos os campos obrigatórios (Nome, E-mail, Telemóvel, NIF).');
-                    }
-                });
+        }
+
+        // Tentar auto-login se houver token válido
+        window.addEventListener('DOMContentLoaded', async () => {
+            const active = await window.AuthClient.tryAutoLogin();
+            if (active) {
+                document.getElementById('loginWall').style.display = 'none';
+                document.getElementById('appContent').style.display = 'block';
+                setTimeout(() => { if(window._activatePurePanel) window._activatePurePanel(); }, 500);
             }
-            
-            const mobileExportBtn = document.getElementById('mobileExportBtn');
-            if (mobileExportBtn) {
-                mobileExportBtn.addEventListener('click', () => {
-                    const userPhone = window.AuthClient.currentUser?.phone;
-                    if (userPhone && window.EliteUtils) {
-                        window.EliteUtils.showToast(`Relatório enviado para o dispositivo móvel: ${userPhone}`, 'success');
-                    } else if (window.EliteProbatum?.exportToRegisteredDevice) {
-                        window.EliteProbatum.exportToRegisteredDevice();
-                    } else {
-                        alert('Funcionalidade de exportação para dispositivo móvel em desenvolvimento.');
-                    }
-                });
-            }
-            
-            const integrityCheckBtn = document.getElementById('btn-integrity-check');
-            if (integrityCheckBtn) {
-                integrityCheckBtn.addEventListener('click', () => {
-                    if (window.StrategicVault?.verifySystemIntegrity) {
-                        window.StrategicVault.verifySystemIntegrity();
-                    } else if (window.BlockchainCustody?.verifySystemIntegrity) {
-                        window.BlockchainCustody.verifySystemIntegrity();
-                    } else {
-                        alert('Módulo de verificação de integridade não disponível.');
-                    }
-                });
-            }
-            
-            const settingsBtn = document.getElementById('settingsBtn');
-            const settingsModal = document.getElementById('settingsModal');
-            if (settingsBtn && settingsModal) {
-                settingsBtn.addEventListener('click', () => {
-                    settingsModal.style.display = 'flex';
-                });
-            }
-            
-            const saveSettingsBtn = document.getElementById('saveSettingsBtn');
-            if (saveSettingsBtn) {
-                saveSettingsBtn.addEventListener('click', () => {
-                    const apiCourtKey = document.getElementById('apiCourtKey')?.value;
-                    const webhookUrl = document.getElementById('webhookUrl')?.value;
-                    const themeMode = document.getElementById('themeMode')?.value;
-                    const emailNotifications = document.getElementById('emailNotifications')?.checked;
-                    const smsNotifications = document.getElementById('smsNotifications')?.checked;
-                    const settings = {
-                        apiCourtKey: apiCourtKey ? CryptoJS.SHA256(apiCourtKey).toString() : null,
-                        webhookUrl,
-                        themeMode,
-                        emailNotifications,
-                        smsNotifications,
-                        userPhone: window.AuthClient.currentUser?.phone,
-                        updatedAt: new Date().toISOString()
-                    };
-                    if (window.SecureStorageInstance) {
-                        window.SecureStorageInstance.setItem('user_settings', settings);
-                    } else {
-                        localStorage.setItem('elite_settings', JSON.stringify(settings));
-                    }
-                    if (window.EliteUtils) {
-                        window.EliteUtils.showToast('Configurações guardadas!', 'success');
-                    }
-                    settingsModal.style.display = 'none';
-                });
-            }
-            
-            console.log('[ELITE PROBATUM] Unidade de Comando Estratégica pronta v2.0.5 (Modo Seguro).');
-        })();
+        });
     </script>
 </body>
 </html>
