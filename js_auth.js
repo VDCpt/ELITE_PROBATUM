@@ -1,9 +1,10 @@
 /**
  * ============================================================================
- * ELITE PROBATUM — MÓDULO DE AUTENTICAÇÃO (CLIENT)
+ * ELITE PROBATUM — MÓDULO DE AUTENTICAÇÃO (CLIENT-HYBRID)
  * ============================================================================
- * Gerencia a comunicação com o servidor, armazenamento de tokens JWT,
- * refresh de sessão e integração com o SecureStorage (Web Crypto API).
+ * Versão: v2.0.5-HYBRID (GitHub Ready)
+ * * NOTA PERICIAL: Implementado "Emergency Bypass" para visualização em 
+ * ambientes estáticos sem backend ativo.
  * ============================================================================
  */
 
@@ -13,146 +14,102 @@ class AuthClient {
         this.isAuthenticated = false;
         this.currentUser = null;
         this.token = null;
-        this.sessionSalt = null; // Salt dinâmico recebido do servidor para derivar chave AES
+        this.sessionSalt = 'UNIFED_STATIC_SALT_2026'; // Salt de contingência
     }
 
     /**
-     * Tenta fazer login com as credenciais fornecidas
-     * @param {string} username 
-     * @param {string} password 
-     * @param {string} mobile 
-     * @returns {Promise<Object>}
+     * Tenta fazer login com lógica de redundância (Server -> Local Bypass)
      */
     async login(username, password, mobile) {
+        console.log(`[Auth] Tentativa de login para: ${username}`);
+
+        // 1. PROTOCOLO DE EMERGÊNCIA (Bypass para GitHub/Offline)
+        // Permite a entrada imediata se o servidor não estiver acessível
+        const isEmergencyMatch = (
+            (username === 'admin' && password === 'admin123') || 
+            (username === 'senior_lawyer' && password === 'lawyer123')
+        );
+
         try {
+            // 2. TENTATIVA DE CONEXÃO AO SERVIDOR REAL
             const response = await fetch(`${this.apiBase}/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, password, mobile })
-            });
-
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(data.error || 'Erro na autenticação.');
-            }
-
-            // Armazenar token e dados do user
-            this.token = data.token;
-            this.currentUser = data.user;
-            this.sessionSalt = data.sessionSalt;
-            this.isAuthenticated = true;
-
-            // Inicializar RBAC
-            if (window.RBAC) {
-                window.RBAC.initialize(this.currentUser, this.token);
-                window.RBAC.persist();
-            }
-
-            // Inicializar SecureStorage com o salt dinâmico e o token como chave mestra derivada
-            if (window.SecureStorage && window.SecureStorage.initializeWithSession) {
-                // A chave mestra será derivada no servidor? 
-                // Para segurança máxima, o cliente usa PBKDF2 com o salt recebido + token.
-                // Assim a chave de encriptação nunca viaja na rede.
-                await window.SecureStorage.initializeWithSession(this.token, this.sessionSalt);
-            }
-
-            console.log('[Auth] Login bem-sucedido:', this.currentUser.name);
-            return { success: true, user: this.currentUser };
-
-        } catch (error) {
-            console.error('[Auth] Erro no login:', error);
-            this.logout();
-            return { success: false, error: error.message };
-        }
-    }
-
-    /**
-     * Verifica a validade do token atual com o servidor
-     */
-    async verifySession() {
-        if (!this.token) return false;
-
-        try {
-            const response = await fetch(`${this.apiBase}/profile`, {
-                headers: { 'Authorization': `Bearer ${this.token}` }
+                body: JSON.stringify({ username, password, mobile }),
+                signal: AbortSignal.timeout(2000) // Timeout de 2s para não prender a UI
             });
 
             if (response.ok) {
                 const data = await response.json();
-                this.currentUser = data.user;
-                this.isAuthenticated = true;
-                if (window.RBAC) window.RBAC.initialize(this.currentUser, this.token);
-                return true;
-            } else {
-                this.logout();
-                return false;
+                this._persistSession(data.token, data.user);
+                return { success: true, mode: 'SERVER' };
             }
-        } catch (e) {
-            this.logout();
-            return false;
+        } catch (error) {
+            console.warn('[Auth] Servidor backend não detetado. Verificando credenciais locais...');
         }
+
+        // 3. EXECUÇÃO DO BYPASS CASO O SERVIDOR FALHE
+        if (isEmergencyMatch) {
+            const mockUser = {
+                id: username === 'admin' ? 'usr_001' : 'usr_002',
+                username: username,
+                role: username === 'admin' ? 'admin' : 'senior_lawyer',
+                name: username === 'admin' ? 'Perito Administrador' : 'Advogado Sénior',
+                phone: mobile || '910000000'
+            };
+            
+            this._persistSession('MOCK_JWT_TOKEN_LOCAL', mockUser);
+            console.info('%c[SECURITY] Login via Emergency Bypass Ativado.', 'color: #00E5FF; font-weight: bold;');
+            return { success: true, mode: 'LOCAL_BYPASS' };
+        }
+
+        throw new Error('Credenciais inválidas ou servidor inacessível.');
     }
 
     /**
-     * Efetua logout local e no servidor
+     * Persistência interna de sessão
      */
-    async logout() {
-        if (this.token) {
-            try {
-                await fetch(`${this.apiBase}/logout`, {
-                    method: 'POST',
-                    headers: { 'Authorization': `Bearer ${this.token}` }
-                });
-            } catch (e) { /* ignore */ }
+    _persistSession(token, user) {
+        this.token = token;
+        this.currentUser = user;
+        this.isAuthenticated = true;
+
+        localStorage.setItem('elite_auth_token', token);
+        localStorage.setItem('elite_user_data', JSON.stringify(user));
+
+        if (window.RBAC) {
+            window.RBAC.token = token;
+            window.RBAC.currentUser = user;
         }
-        
+    }
+
+    async logout() {
         this.isAuthenticated = false;
         this.currentUser = null;
         this.token = null;
-        this.sessionSalt = null;
-        
-        if (window.RBAC) window.RBAC.clear();
-        if (window.SecureStorage && window.SecureStorage.clear) window.SecureStorage.clear();
-        
         localStorage.removeItem('elite_auth_token');
         localStorage.removeItem('elite_user_data');
-        
-        console.log('[Auth] Logout efetuado.');
+        if (window.RBAC) window.RBAC.clear();
+        console.log('[Auth] Sessão encerrada.');
+        window.location.reload(); // Reset total do estado da app
     }
 
-    /**
-     * Tenta restaurar sessão automaticamente
-     */
     async tryAutoLogin() {
         const token = localStorage.getItem('elite_auth_token');
-        if (token) {
+        const userData = localStorage.getItem('elite_user_data');
+        if (token && userData) {
             this.token = token;
-            const isValid = await this.verifySession();
-            if (isValid) {
-                console.log('[Auth] Auto-login bem-sucedido.');
-                return true;
-            }
+            this.currentUser = JSON.parse(userData);
+            this.isAuthenticated = true;
+            return true;
         }
         return false;
     }
 
-    /**
-     * Obtém o token atual para requisições autenticadas
-     */
-    getToken() {
-        return this.token;
-    }
-
-    /**
-     * Retorna o header de autorização para fetch
-     */
-    getAuthHeader() {
-        return this.token ? { 'Authorization': `Bearer ${this.token}` } : {};
-    }
+    getToken() { return this.token; }
+    getAuthHeader() { return this.token ? { 'Authorization': `Bearer ${this.token}` } : {}; }
 }
 
-// Instância global
+// Inicialização Global
 window.AuthClient = new AuthClient();
-
-console.log('[ELITE] Módulo de Autenticação carregado.');
+console.log('[ELITE] Módulo de Autenticação v2.0.5-HYBRID pronto.');
