@@ -1,24 +1,20 @@
 {
-  "name": "elite-probatum-server",
-  "version": "2.0.5",
-  "description": "Backend para ELITE PROBATUM - Unidade de Comando Estratégico",
+  "name": "elite-probatum",
+  "version": "3.0.0",
+  "description": "ELITE PROBATUM — Plataforma de Inteligência Jurídica com Servidor Seguro",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "nodemon server.js"
+    "dev": "node --watch server.js",
+    "setup": "node server.js --setup"
   },
-  "keywords": ["forensic", "legaltech", "security", "jwt", "pbkdf2"],
-  "author": "ELITE PROBATUM",
-  "license": "UNLICENSED",
   "dependencies": {
     "express": "^4.18.2",
     "jsonwebtoken": "^9.0.2",
-    "bcryptjs": "^2.4.3",
-    "cors": "^2.8.5",
-    "helmet": "^7.1.0",
-    "express-rate-limit": "^7.1.5"
+    "cors": "^2.8.5"
   },
-  "devDependencies": {
-    "nodemon": "^3.0.1"
-  }
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "private": true
 }

@@ -1,196 +1,315 @@
 /**
  * ============================================================================
- * ELITE PROBATUM — MÓDULO RBAC (ROLE-BASED ACCESS CONTROL)
+ * ELITE PROBATUM v3.0.0 — MÓDULO RBAC (Role-Based Access Control)
  * ============================================================================
- * Gerencia permissões de acesso com base no payload do JWT.
- * Roles disponíveis: admin, partner, senior_lawyer, junior_lawyer
+ * Funcionalidades:
+ * 1. Definição de perfis (admin, socio, advogado, estagiario)
+ * 2. Matriz de permissões por perfil
+ * 3. Filtragem de processos por utilizador
+ * 4. Controlo de visibilidade da navegação
+ * 5. Adaptação da UI por perfil
  * ============================================================================
  */
 
-class RBACManager {
-    constructor() {
-        this.currentUser = null;
-        this.token = null;
-        this.permissions = {
-            admin: {
-                canViewAllCases: true,
-                canEditAllCases: true,
-                canDeleteCases: true,
-                canManageUsers: true,
-                canViewAdminPanel: true,
-                canViewVault: true,
-                canExportAll: true,
-                priority: 100
-            },
-            partner: {
-                canViewAllCases: true,
-                canEditAllCases: true,
-                canDeleteCases: false,
-                canManageUsers: true,
-                canViewAdminPanel: true,
-                canViewVault: true,
-                canExportAll: true,
-                priority: 90
-            },
-            senior_lawyer: {
-                canViewAllCases: false,
-                canEditAllCases: false,
-                canDeleteCases: false,
-                canManageUsers: false,
-                canViewAdminPanel: false,
-                canViewVault: true,
-                canExportAll: false,
-                priority: 70
-            },
-            junior_lawyer: {
-                canViewAllCases: false,
-                canEditAllCases: false,
-                canDeleteCases: false,
-                canManageUsers: false,
-                canViewAdminPanel: false,
-                canViewVault: false,
-                canExportAll: false,
-                priority: 50
+(function () {
+    'use strict';
+
+    // =========================================================================
+    // DEFINIÇÃO DE PERFIS E PERMISSÕES
+    // =========================================================================
+
+    const ROLES = {
+        ADMIN:      'admin',
+        SOCIO:      'socio',
+        ADVOGADO:   'advogado',
+        ESTAGIARIO: 'estagiario'
+    };
+
+    const ROLE_LABELS = {
+        admin:      'Administrador',
+        socio:      'Sócio',
+        advogado:   'Advogado',
+        estagiario: 'Estagiário'
+    };
+
+    // Matriz de permissões: o que cada perfil pode fazer
+    const PERMISSIONS = {
+        admin: {
+            viewAllCases:       true,
+            editAllCases:       true,
+            deleteAllCases:     true,
+            viewFinancial:      true,
+            manageUsers:        true,
+            switchDataMode:     true,
+            viewAdmin:          true,
+            viewInsolvency:     true,
+            viewLabor:          true,
+            viewLitigation:     true,
+            viewQuestionnaire:  true,
+            viewEvidence:       true,
+            viewAdversary:      true,
+            viewSimulator:      true,
+            viewDeadlines:      true,
+            viewActivityLog:    true,
+            viewTruthArch:      true,
+            viewValueDashboard: true,
+            exportPDF:          true,
+            exportForensic:     true,
+            accessJudgeBio:     true,
+            accessNeuralLit:    true,
+            accessMarket:       true,
+            accessGamification: true
+        },
+        socio: {
+            viewAllCases:       true,
+            editAllCases:       true,
+            deleteAllCases:     false,
+            viewFinancial:      true,
+            manageUsers:        false,
+            switchDataMode:     true,
+            viewAdmin:          false,
+            viewInsolvency:     true,
+            viewLabor:          true,
+            viewLitigation:     true,
+            viewQuestionnaire:  true,
+            viewEvidence:       true,
+            viewAdversary:      true,
+            viewSimulator:      true,
+            viewDeadlines:      true,
+            viewActivityLog:    true,
+            viewTruthArch:      true,
+            viewValueDashboard: true,
+            exportPDF:          true,
+            exportForensic:     true,
+            accessJudgeBio:     true,
+            accessNeuralLit:    true,
+            accessMarket:       true,
+            accessGamification: true
+        },
+        advogado: {
+            viewAllCases:       false,
+            editAllCases:       false,
+            deleteAllCases:     false,
+            viewFinancial:      false,
+            manageUsers:        false,
+            switchDataMode:     false,
+            viewAdmin:          false,
+            viewInsolvency:     true,
+            viewLabor:          true,
+            viewLitigation:     true,
+            viewQuestionnaire:  true,
+            viewEvidence:       true,
+            viewAdversary:      true,
+            viewSimulator:      true,
+            viewDeadlines:      true,
+            viewActivityLog:    false,
+            viewTruthArch:      true,
+            viewValueDashboard: false,
+            exportPDF:          true,
+            exportForensic:     true,
+            accessJudgeBio:     true,
+            accessNeuralLit:    true,
+            accessMarket:       false,
+            accessGamification: true
+        },
+        estagiario: {
+            viewAllCases:       false,
+            editAllCases:       false,
+            deleteAllCases:     false,
+            viewFinancial:      false,
+            manageUsers:        false,
+            switchDataMode:     false,
+            viewAdmin:          false,
+            viewInsolvency:     true,
+            viewLabor:          true,
+            viewLitigation:     false,
+            viewQuestionnaire:  true,
+            viewEvidence:       true,
+            viewAdversary:      false,
+            viewSimulator:      false,
+            viewDeadlines:      true,
+            viewActivityLog:    false,
+            viewTruthArch:      false,
+            viewValueDashboard: false,
+            exportPDF:          false,
+            exportForensic:     false,
+            accessJudgeBio:     false,
+            accessNeuralLit:    false,
+            accessMarket:       false,
+            accessGamification: true
+        }
+    };
+
+    // Mapeamento de views para permissões necessárias
+    const VIEW_PERMISSIONS = {
+        dashboard:         null,
+        cases:             null,
+        insolvency:        'viewInsolvency',
+        labor:             'viewLabor',
+        litigation:        'viewLitigation',
+        questionnaire:     'viewQuestionnaire',
+        evidence:          'viewEvidence',
+        adversary:         'viewAdversary',
+        simulator:         'viewSimulator',
+        deadlines:         'viewDeadlines',
+        activitylog:       'viewActivityLog',
+        truth_architecture: 'viewTruthArch',
+        value_dashboard:   'viewValueDashboard',
+        admin:             'viewAdmin'
+    };
+
+    // =========================================================================
+    // RBAC ENGINE
+    // =========================================================================
+
+    const EliteRBAC = {
+
+        /**
+         * Verifica se o utilizador corrente tem uma permissão específica
+         */
+        can(permission) {
+            const user = window.ELITE_USER;
+            if (!user || !user.role) return false;
+            const perms = PERMISSIONS[user.role];
+            if (!perms) return false;
+            return !!perms[permission];
+        },
+
+        /**
+         * Verifica se pode aceder a uma view
+         */
+        canView(viewName) {
+            const permRequired = VIEW_PERMISSIONS[viewName];
+            if (!permRequired) return true;
+            return this.can(permRequired);
+        },
+
+        /**
+         * Filtra processos conforme o perfil do utilizador
+         * Admin/sócio: todos | Advogado/estagiário: apenas assignedCases
+         */
+        filterCases(cases) {
+            const user = window.ELITE_USER;
+            if (!user) return [];
+            if (this.can('viewAllCases')) return cases;
+            const assigned = user.assignedCases || [];
+            return cases.filter(c =>
+                assigned.includes(c.id) ||
+                c.assignedTo === user.id
+            );
+        },
+
+        /**
+         * Retorna label legível do perfil
+         */
+        getRoleLabel(role) {
+            return ROLE_LABELS[role] || role;
+        },
+
+        /**
+         * Retorna o perfil corrente
+         */
+        getRole() {
+            return window.ELITE_USER ? window.ELITE_USER.role : null;
+        },
+
+        /**
+         * Aplica visibilidade dos itens de navegação conforme perfil
+         */
+        applyNavVisibility() {
+            const navItems = document.querySelectorAll('.nav-item[data-view]');
+            navItems.forEach(item => {
+                const view = item.getAttribute('data-view');
+                if (view && !this.canView(view)) {
+                    item.style.display = 'none';
+                } else {
+                    item.style.display = '';
+                }
+            });
+        },
+
+        /**
+         * Aplica restrições de botões conforme perfil
+         * (eliminar, exportar, etc.)
+         */
+        applyUIRestrictions() {
+            // Botão exportar PDF
+            const exportBtn = document.getElementById('exportReportBtn');
+            if (exportBtn) {
+                exportBtn.style.display = this.can('exportPDF') ? '' : 'none';
             }
-        };
-    }
-
-    /**
-     * Inicializa o gestor com os dados do utilizador logado
-     * @param {Object} userData - Dados do utilizador vindo do servidor
-     * @param {string} token - JWT token
-     */
-    initialize(userData, token) {
-        this.currentUser = userData;
-        this.token = token;
-        console.log(`[RBAC] Inicializado para: ${userData.name} (${userData.role})`);
-        return this;
-    }
-
-    /**
-     * Verifica se o utilizador tem permissão para aceder a um determinado caso
-     * @param {string} caseId - ID do processo
-     * @returns {boolean}
-     */
-    canAccessCase(caseId) {
-        if (!this.currentUser) return false;
-        
-        const rolePerms = this.permissions[this.currentUser.role];
-        if (!rolePerms) return false;
-
-        // Admin e Sócios veem tudo
-        if (rolePerms.canViewAllCases) return true;
-
-        // Advogados: verificam se o caso está na sua lista assignedCases
-        if (this.currentUser.assignedCases && this.currentUser.assignedCases.includes(caseId)) {
-            return true;
-        }
-
-        console.warn(`[RBAC] Acesso negado ao caso ${caseId} para ${this.currentUser.name}`);
-        return false;
-    }
-
-    /**
-     * Filtra uma lista de casos, retornando apenas os permitidos
-     * @param {Array} cases - Lista de objetos de caso (cada objeto deve ter uma propriedade 'id')
-     * @returns {Array}
-     */
-    filterAccessibleCases(cases) {
-        if (!this.currentUser) return [];
-        
-        const rolePerms = this.permissions[this.currentUser.role];
-        if (rolePerms && rolePerms.canViewAllCases) return cases;
-
-        return cases.filter(c => 
-            this.currentUser.assignedCases && this.currentUser.assignedCases.includes(c.id)
-        );
-    }
-
-    /**
-     * Verifica permissão específica
-     * @param {string} permissionKey - Ex: 'canViewAdminPanel', 'canDeleteCases'
-     * @returns {boolean}
-     */
-    hasPermission(permissionKey) {
-        if (!this.currentUser) return false;
-        const rolePerms = this.permissions[this.currentUser.role];
-        return rolePerms ? !!rolePerms[permissionKey] : false;
-    }
-
-    /**
-     * Obtém o nível de prioridade do utilizador
-     * @returns {number}
-     */
-    getPriority() {
-        if (!this.currentUser) return 0;
-        return this.permissions[this.currentUser.role]?.priority || 0;
-    }
-
-    /**
-     * Verifica se o utilizador atual é Admin
-     */
-    isAdmin() {
-        return this.currentUser?.role === 'admin';
-    }
-
-    /**
-     * Verifica se é Sócio
-     */
-    isPartner() {
-        return this.currentUser?.role === 'partner';
-    }
-
-    /**
-     * Verifica se é Advogado (qualquer nível)
-     */
-    isLawyer() {
-        return this.currentUser?.role === 'senior_lawyer' || this.currentUser?.role === 'junior_lawyer';
-    }
-
-    /**
-     * Limpa a sessão (logout)
-     */
-    clear() {
-        this.currentUser = null;
-        this.token = null;
-        localStorage.removeItem('elite_auth_token');
-        localStorage.removeItem('elite_user_data');
-    }
-
-    /**
-     * Persiste os dados no localStorage (apenas para persistência de sessão entre refreshes)
-     */
-    persist() {
-        if (this.currentUser && this.token) {
-            localStorage.setItem('elite_auth_token', this.token);
-            localStorage.setItem('elite_user_data', JSON.stringify(this.currentUser));
-        }
-    }
-
-    /**
-     * Tenta restaurar sessão a partir do localStorage
-     * @returns {boolean}
-     */
-    restore() {
-        const token = localStorage.getItem('elite_auth_token');
-        const userData = localStorage.getItem('elite_user_data');
-        
-        if (token && userData) {
-            try {
-                this.token = token;
-                this.currentUser = JSON.parse(userData);
-                console.log(`[RBAC] Sessão restaurada para: ${this.currentUser.name}`);
-                return true;
-            } catch (e) {
-                console.error('[RBAC] Erro ao restaurar sessão:', e);
-                this.clear();
+            // Botão exportar para dispositivo
+            const mobileExportBtn = document.getElementById('mobileExportBtn');
+            if (mobileExportBtn) {
+                mobileExportBtn.style.display = this.can('exportPDF') ? '' : 'none';
             }
+        },
+
+        /**
+         * Gera o badge de modo de dados (DEMO/REAL)
+         */
+        renderDataModeBadge(dataMode) {
+            const existing = document.getElementById('dataModeIndicator');
+            if (existing) existing.remove();
+
+            const badge = document.createElement('div');
+            badge.id = 'dataModeIndicator';
+            badge.style.cssText = [
+                'position: fixed',
+                'bottom: 20px',
+                'right: 20px',
+                'z-index: 9999',
+                'padding: 6px 14px',
+                'border-radius: 20px',
+                'font-family: "JetBrains Mono", monospace',
+                'font-size: 0.65rem',
+                'font-weight: 700',
+                'letter-spacing: 2px',
+                'pointer-events: none',
+                dataMode === 'demo'
+                    ? 'background: rgba(245, 166, 35, 0.15); color: #F5A623; border: 1px solid #F5A623;'
+                    : 'background: rgba(0, 230, 118, 0.15); color: #00E676; border: 1px solid #00E676;'
+            ].join('; ');
+            badge.textContent = dataMode === 'demo' ? '● MODO DEMO' : '● DADOS REAIS';
+
+            document.body.appendChild(badge);
+        },
+
+        /**
+         * Actualiza informação do utilizador na sidebar
+         */
+        updateUserDisplay() {
+            const user = window.ELITE_USER;
+            if (!user) return;
+
+            const userName = document.getElementById('userName');
+            const userRole = document.getElementById('userRole');
+            const userPhone = document.getElementById('userPhone');
+
+            if (userName) userName.textContent = user.name;
+            if (userRole) userRole.textContent = `${this.getRoleLabel(user.role)} · ${user.team}`;
+            if (userPhone && user.phone) userPhone.textContent = user.phone;
+        },
+
+        /**
+         * Inicializa o módulo RBAC após login
+         */
+        initialize(user, dataMode) {
+            window.ELITE_USER = user;
+            window.ELITE_DATA_MODE = dataMode || 'demo';
+            this.applyNavVisibility();
+            this.applyUIRestrictions();
+            this.updateUserDisplay();
+            this.renderDataModeBadge(window.ELITE_DATA_MODE);
+            console.log(`[RBAC] Inicializado para ${user.name} (${user.role}) | Modo: ${window.ELITE_DATA_MODE}`);
         }
-        return false;
-    }
-}
+    };
 
-// Instância global
-window.RBAC = new RBACManager();
+    // Exposição global
+    window.EliteRBAC   = EliteRBAC;
+    window.ELITE_ROLES = ROLES;
+    window.ELITE_PERMISSIONS = PERMISSIONS;
 
-console.log('[ELITE] Módulo RBAC carregado.');
+    console.log('[ELITE] RBAC Module carregado — v3.0.0');
+
+})();

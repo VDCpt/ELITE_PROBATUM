@@ -2,96 +2,243 @@
 <html lang="pt-PT">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ELITE PROBATUM | Unidade de Comando</title>
-    
-    <style>
-        :root { --accent: #00e5ff; --bg: #020617; }
-        body { background: var(--bg); color: white; font-family: 'Inter', sans-serif; margin: 0; overflow-x: hidden; }
-        
-        #loginWall {
-            position: fixed; inset: 0; background: var(--bg);
-            display: flex; align-items: center; justify-content: center; z-index: 10000;
-        }
-        .login-box {
-            background: #0f172a; padding: 40px; border-radius: 12px;
-            border: 1px solid var(--accent); width: 100%; max-width: 350px;
-            text-align: center; box-shadow: 0 0 30px rgba(0,229,255,0.1);
-        }
-        h2 { color: var(--accent); font-family: monospace; margin-bottom: 20px; }
-        input {
-            width: 100%; padding: 12px; margin: 10px 0; border-radius: 6px;
-            border: 1px solid #334155; background: #1e293b; color: white; box-sizing: border-box;
-        }
-        button {
-            width: 100%; padding: 14px; background: var(--accent); color: #020617;
-            border: none; border-radius: 6px; font-weight: bold; cursor: pointer; margin-top: 10px;
-        }
-        #errMsg { color: #ef4444; font-size: 12px; margin-top: 15px; display: none; }
-        #appContent { display: none; padding: 20px; }
-    </style>
-    
-    <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="style_additions.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="description" content="ELITE PROBATUM v3.0.0 — Unidade de Comando Estratégico">
+    <meta name="author" content="ELITE PROBATUM">
+    <meta name="theme-color" content="#00e5ff">
+    <link rel="manifest" href="/manifest.json">
+    <!-- CSP agora servida pelo servidor (header HTTP) — sem unsafe-inline em script-src -->
+    <meta name="referrer" content="strict-origin-when-cross-origin">
+    <title>ELITE PROBATUM | Unidade de Comando Estratégico</title>
+
+    <!-- Favicon -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚖️</text></svg>">
+
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- CSS Locais -->
+    <link rel="stylesheet" href="css_main.css">
+    <link rel="stylesheet" href="css_components.css">
+
+    <!-- Vendors CDN -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.4/moment.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://cdn.jsdelivr.net/npm/localforage@1.10.0/dist/localforage.min.js"></script>
 </head>
 <body>
 
-    <div id="loginWall">
-        <div class="login-box">
-            <h2>ELITE PROBATUM</h2>
-            <input type="text" id="userInput" placeholder="Utilizador (admin)" autocomplete="off">
-            <input type="password" id="passInput" placeholder="Palavra-passe">
-            <button id="loginBtn">ACEDER À UNIDADE</button>
-            <p id="errMsg">Acesso Negado: Credenciais Inválidas.</p>
+    <!-- GATEKEEPER SECURE - LOGIN ESTRATÉGICO -->
+    <div id="loginOverlay" class="gatekeeper-secure">
+        <div class="login-card">
+            <div class="login-logo">
+                <i class="fas fa-crown"></i>
+                <span>ELITE <span class="logo-highlight">PROBATUM</span></span>
+            </div>
+            <div class="version-badge">v3.0.0 · UNIDADE DE COMANDO ESTRATÉGICO</div>
+            <p class="subtitle" data-i18n="login_subtitle">Acesso restrito a pessoal autorizado</p>
+
+            <div class="form-group">
+                <label data-i18n="login_user">UTILIZADOR</label>
+                <input type="text" id="username" placeholder="utilizador" autocomplete="username">
+            </div>
+            <div class="form-group">
+                <label data-i18n="login_password">PALAVRA-PASSE</label>
+                <input type="password" id="password" placeholder="••••••••" autocomplete="current-password">
+            </div>
+
+            <div id="loginError" class="login-error" style="display: none;" data-i18n="login_error">ACESSO NEGADO — Credenciais inválidas</div>
+
+            <button id="authBtn" class="elite-btn primary full-width">
+                <i class="fas fa-key"></i> <span data-i18n="login_button">AUTENTICAR</span>
+            </button>
+
+            <div class="request-access">
+                <button id="requestAccessBtn" class="elite-btn secondary full-width request-access-btn">
+                    <i class="fas fa-user-plus"></i> <span data-i18n="login_request">SOLICITAR ACESSO</span>
+                </button>
+                <p class="access-hint">O pedido será enviado ao Master Hash Controller</p>
+            </div>
+
+            <div class="language-selector">
+                <button id="langPT" class="lang-btn active" data-locale="pt">🇵🇹 PORTUGUÊS</button>
+                <button id="langEN" class="lang-btn" data-locale="en">🇬🇧 ENGLISH</button>
+            </div>
+
+            <div class="security-badge">
+                <i class="fas fa-shield-alt"></i> <span data-i18n="login_security">JWT · AES-256-GCM · 2FA · CANAL SEGURO</span>
+            </div>
         </div>
     </div>
 
-    <div id="appContent">
-        <div id="pureDashboardWrapper"></div>
+    <!-- MODAL DE PEDIDO DE ACESSO -->
+    <div id="accessRequestModal" class="elite-modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-user-plus"></i> Solicitar Acesso</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="accessRequestForm">
+                    <div class="form-group"><label>Nome Completo *</label><input type="text" id="requestName" required autocomplete="name"></div>
+                    <div class="form-group"><label>E-mail Institucional *</label><input type="email" id="requestEmail" required autocomplete="email"></div>
+                    <div class="form-group"><label>Telemóvel (para notificações) *</label><input type="tel" id="requestPhone" placeholder="+351 912 345 678" required autocomplete="tel"></div>
+                    <div class="form-group"><label>NIF / NIPC *</label><input type="text" id="requestNif" required></div>
+                    <div class="form-group"><label>Cargo / Função</label><input type="text" id="requestRole" placeholder="Ex: Sócio, Advogado, Estagiário"></div>
+                    <div class="form-group"><label>Justificação de Acesso</label><textarea id="requestReason" rows="3" placeholder="Motivo pelo qual necessita de aceder ao sistema..."></textarea></div>
+                    <button type="submit" class="elite-btn primary full-width"><i class="fas fa-paper-plane"></i> ENVIAR PEDIDO</button>
+                </form>
+            </div>
+        </div>
     </div>
 
-    <script src="js_auth.js"></script>
+    <!-- MODAL DE AUTENTICAÇÃO 2FA -->
+    <div id="twoFactorModal" class="elite-modal" style="display: none;">
+        <div class="modal-content" style="max-width: 400px;">
+            <div class="modal-header"><h3><i class="fas fa-mobile-alt"></i> AUTENTICAÇÃO DE DOIS FATORES</h3><button class="modal-close">&times;</button></div>
+            <div class="modal-body">
+                <p style="text-align:center;margin-bottom:8px;">Enviamos um código de verificação para o seu telemóvel</p>
+                <p id="twoFactorPhoneInfo" style="text-align:center;margin-bottom:20px;font-size:0.75rem;color:#00e5ff;"></p>
+                <div class="form-group"><label>Código de Verificação</label><input type="text" id="twoFactorCode" placeholder="000000" maxlength="6" style="text-align:center;font-size:1.2rem;letter-spacing:4px;" autocomplete="one-time-code" inputmode="numeric"></div>
+                <button id="verifyTwoFactorBtn" class="elite-btn primary full-width"><i class="fas fa-check-circle"></i> VERIFICAR</button>
+                <button id="resendCodeBtn" class="elite-btn secondary full-width" style="margin-top:12px;"><i class="fas fa-redo"></i> REENVIAR CÓDIGO</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAIS PRINCIPAIS -->
+    <div id="aiPredictionModal" class="elite-modal" style="display: none;"><div class="modal-content" style="max-width: 800px;"><div class="modal-header"><h3><i class="fas fa-brain"></i> ANÁLISE PREDITIVA AVANÇADA</h3><button class="modal-close">&times;</button></div><div class="modal-body" id="aiPredictionBody"></div></div></div>
+    <div id="leadCaptureModal" class="elite-modal" style="display: none;"><div class="modal-content"><div class="modal-header"><h3><i class="fas fa-chart-line"></i> INTELIGÊNCIA DE MERCADO · LEADS QUENTES</h3><button class="modal-close">&times;</button></div><div class="modal-body" id="leadCaptureBody"></div></div></div>
+    <div id="caseDetailModal" class="elite-modal" style="display: none;"><div class="modal-content"><div class="modal-header"><h3><i class="fas fa-folder-open"></i> DETALHES DO PROCESSO</h3><button class="modal-close">&times;</button></div><div class="modal-body" id="caseDetailBody"></div></div></div>
+    <div id="newClientModal" class="elite-modal" style="display: none;"><div class="modal-content"><div class="modal-header"><h3><i class="fas fa-user-plus"></i> NOVO CLIENTE</h3><button class="modal-close">&times;</button></div><div class="modal-body"><form id="newClientForm"><div class="form-group"><label>Nome do Cliente *</label><input type="text" id="clientName" required></div><div class="form-group"><label>NIF / NIPC *</label><input type="text" id="clientNif" required></div><div class="form-group"><label>Valor da Causa (€) *</label><input type="number" id="clientCaseValue" required></div><button type="submit" class="elite-btn primary full-width">CRIAR CLIENTE</button></form></div></div></div>
+    <div id="notesModal" class="elite-modal" style="display: none;"><div class="modal-content"><div class="modal-header"><h3><i class="fas fa-pen"></i> NOTAS ESTRATÉGICAS</h3><button class="modal-close">&times;</button></div><div class="modal-body"><textarea id="strategicNote" rows="4" placeholder="Escreva uma nota estratégica... (com hash SHA-256)"></textarea><button id="saveNoteBtn" class="elite-btn primary full-width">GUARDAR NOTA</button><div id="notesList" style="margin-top:20px;"></div></div></div></div>
+    <div id="integrityModal" class="elite-modal" style="display: none;"><div class="modal-content"><div class="modal-header"><h3><i class="fas fa-shield-alt"></i> VERIFICAÇÃO DE INTEGRIDADE</h3><button class="modal-close">&times;</button></div><div class="modal-body" id="integrityBody"></div></div></div>
+    <div id="deadlineModal" class="elite-modal" style="display: none;"><div class="modal-content"><div class="modal-header"><h3><i class="fas fa-calendar-plus"></i> NOVO PRAZO JUDICIAL</h3><button class="modal-close">&times;</button></div><div class="modal-body"><form id="newDeadlineForm"><div class="form-group"><label>Processo</label><select id="deadlineCaseId" required></select></div><div class="form-group"><label>Descrição do Prazo *</label><input type="text" id="deadlineDescription" required placeholder="Ex: Contestação, Recurso, Alegações"></div><div class="form-group"><label>Data Limite *</label><input type="text" id="deadlineDate" class="datepicker" placeholder="DD/MM/YYYY" required></div><div class="form-group"><label>Tipo de Prazo</label><select id="deadlineType"><option value="judicial">Judicial (dias úteis)</option><option value="civil">Civil (dias corridos)</option><option value="procedural">Procedimental</option></select></div><div class="form-group"><label>Notas Adicionais</label><textarea id="deadlineNotes" rows="2"></textarea></div><button type="submit" class="elite-btn primary full-width"><i class="fas fa-save"></i> REGISTAR PRAZO</button></form></div></div></div>
+    <div id="settingsModal" class="elite-modal" style="display: none;"><div class="modal-content"><div class="modal-header"><h3><i class="fas fa-cog"></i> CONFIGURAÇÕES AVANÇADAS</h3><button class="modal-close">&times;</button></div><div class="modal-body"><div class="settings-panel"><h4>API Keys</h4><div class="form-group"><label>Chave API - Tribunal Digital</label><input type="password" id="apiCourtKey" placeholder="••••••••" autocomplete="off"></div><div class="form-group"><label>Webhook - Notificações</label><input type="url" id="webhookUrl" placeholder="https://..."></div><hr><h4>Preferências do Sistema</h4><div class="form-group"><label>Modo de Visualização</label><select id="themeMode"><option value="dark">Modo Estratégico (Dark)</option><option value="light">Modo Claro</option><option value="auto">Automático</option></select></div><div class="form-group"><label>Notificações por Telemóvel</label><input type="checkbox" id="smsNotifications" checked> Receber alertas via SMS</div><div class="form-group"><label>Notificações por E-mail</label><input type="checkbox" id="emailNotifications" checked> Receber alertas por e-mail</div><button id="saveSettingsBtn" class="elite-btn primary full-width">GUARDAR CONFIGURAÇÕES</button></div></div></div></div>
+
+    <div id="toastContainer" class="elite-toast-container"></div>
+
+    <!-- MAIN APP CONTAINER -->
+    <div id="appContainer" class="elite-app" style="display: none;">
+        <aside class="elite-sidebar">
+            <div class="sidebar-logo"><i class="fas fa-crown"></i><span>ELITE<span class="elite-light">PROBATUM</span></span><span class="version-tag">v3.0.0</span></div>
+            <nav class="sidebar-nav">
+                <a href="#" class="nav-item active" data-view="dashboard"><i class="fas fa-chart-pie"></i><span>PAINEL DE COMANDO</span></a>
+                <a href="#" class="nav-item" data-view="cases"><i class="fas fa-folder-open"></i><span>PROCESSOS</span><span class="nav-badge" id="casesBadge">0</span></a>
+                <a href="#" class="nav-item" data-view="insolvency"><i class="fas fa-chart-line"></i><span>INSOLVÊNCIAS (CIRE)</span></a>
+                <a href="#" class="nav-item" data-view="labor"><i class="fas fa-briefcase"></i><span>CONTENCIOSO LABORAL</span></a>
+                <a href="#" class="nav-item" data-view="litigation"><i class="fas fa-brain"></i><span>INTELIGÊNCIA DE LITÍGIO</span></a>
+                <a href="#" class="nav-item" data-view="questionnaire"><i class="fas fa-question-circle"></i><span>QUESTIONÁRIOS ESTRATÉGICOS</span></a>
+                <a href="#" class="nav-item" data-view="evidence"><i class="fas fa-link"></i><span>CADEIA DE CUSTÓDIA</span></a>
+                <a href="#" class="nav-item" data-view="adversary"><i class="fas fa-users"></i><span>ANÁLISE DE OPOSIÇÃO</span></a>
+                <a href="#" class="nav-item" data-view="simulator"><i class="fas fa-flask"></i><span>SIMULADOR DE RISCO</span></a>
+                <a href="#" class="nav-item" data-view="deadlines"><i class="fas fa-calendar-alt"></i><span>PRAZOS JUDICIAIS</span></a>
+                <a href="#" class="nav-item" data-view="activitylog"><i class="fas fa-history"></i><span>REGISTOS RGPD</span></a>
+                <a href="#" class="nav-item" data-view="truth_architecture"><i class="fas fa-chess-queen"></i><span>ARQUITETURA DE VERDADE</span></a>
+                <a href="#" class="nav-item" data-view="value_dashboard"><i class="fas fa-chart-line"></i><span>GERAÇÃO DE VALOR</span></a>
+                <a href="#" class="nav-item" data-view="admin"><i class="fas fa-skull"></i><span>ADMINISTRAÇÃO</span></a>
+            </nav>
+            <div class="sidebar-footer">
+                <div class="lawyer-info">
+                    <i class="fas fa-user-shield"></i>
+                    <div>
+                        <strong id="userName">Carregando...</strong>
+                        <small id="userRole">A verificar perfil...</small>
+                        <small id="userPhone" style="font-size:0.55rem;color:#00e5ff;display:block;"></small>
+                    </div>
+                </div>
+                <button class="logout-btn" id="logoutBtn"><i class="fas fa-sign-out-alt"></i></button>
+            </div>
+        </aside>
+        <main class="elite-main">
+            <header class="elite-header">
+                <div class="header-left"><button id="mobileMenuToggle" class="menu-toggle"><i class="fas fa-bars"></i></button><h1 id="pageTitle">PAINEL DE COMANDO ESTRATÉGICO</h1></div>
+                <div class="header-right">
+                    <div class="header-stats">
+                        <div class="stat-item"><span class="stat-label">PROCESSOS ATIVOS</span><span class="stat-value" id="headerActiveCases">0</span></div>
+                        <div class="stat-item"><span class="stat-label">VALOR EM DISPUTA</span><span class="stat-value" id="headerDisputeValue">€0</span></div>
+                        <div class="stat-item"><span class="stat-label">TAXA SUCESSO</span><span class="stat-value" id="headerSuccessRate">0%</span></div>
+                    </div>
+                    <div class="header-actions">
+                        <button id="langToggle" class="icon-btn" title="PT/EN"><i class="fas fa-language"></i></button>
+                        <button id="btn-integrity-check" class="icon-btn" title="Verificação de Integridade"><i class="fas fa-shield-alt"></i></button>
+                        <button id="exportReportBtn" class="icon-btn" title="Exportar Relatório Estratégico"><i class="fas fa-file-pdf"></i></button>
+                        <button id="mobileExportBtn" class="icon-btn" title="Exportar para Dispositivo Móvel"><i class="fas fa-mobile-alt"></i></button>
+                        <button id="settingsBtn" class="icon-btn" title="Configurações Avançadas"><i class="fas fa-cog"></i></button>
+                    </div>
+                </div>
+            </header>
+            <div id="viewContainer" class="view-container"></div>
+        </main>
+    </div>
+
+    <!-- SCRIPTS - MÓDULOS (ordem de carregamento preservada) -->
+    <!-- Core -->
     <script src="js_core_app.js"></script>
-    <script src="script.js"></script>
-    <script src="script_injection.js"></script>
-    <script src="unifed_triada_export.js"></script>
-
-    <script>
-        const wall = document.getElementById('loginWall');
-        const content = document.getElementById('appContent');
-        const err = document.getElementById('errMsg');
-
-        async function handleLogin() {
-            const u = document.getElementById('userInput').value;
-            const p = document.getElementById('passInput').value;
-            
-            try {
-                const result = await window.AuthClient.login(u, p);
-                if (result.success) {
-                    wall.style.display = 'none';
-                    content.style.display = 'block';
-                    
-                    // Inicializa os dados forenses
-                    if (window.loadAnonymizedRealCase) window.loadAnonymizedRealCase();
-                }
-            } catch (e) {
-                err.style.display = 'block';
-            }
-        }
-
-        document.getElementById('loginBtn').addEventListener('click', handleLogin);
-        
-        // Listener para tecla Enter
-        document.addEventListener('keypress', (e) => { if(e.key === 'Enter') handleLogin(); });
-
-        // Verificação de sessão existente ao carregar
-        window.onload = async () => {
-            if (window.AuthClient && await window.AuthClient.tryAutoLogin()) {
-                wall.style.display = 'none';
-                content.style.display = 'block';
-                setTimeout(() => { if(window.loadAnonymizedRealCase) window.loadAnonymizedRealCase(); }, 100);
-            }
-        };
-    </script>
+    <script src="js_components_charts.js"></script>
+    <script src="js_components_tables.js"></script>
+    <!-- RBAC (antes dos módulos) -->
+    <script src="js_modules_rbac.js"></script>
+    <!-- Módulos de funcionalidade -->
+    <script src="js_modules_ai-assistant.js"></script>
+    <script src="js_modules_black-swan.js"></script>
+    <script src="js_modules_blockchain-custody.js"></script>
+    <script src="js_modules_client-experience.js"></script>
+    <script src="js_modules_court-deadlines.js"></script>
+    <script src="js_modules_gamification.js"></script>
+    <script src="js_modules_judge-biometrics.js"></script>
+    <script src="js_modules_judicial-analytics.js"></script>
+    <script src="js_modules_lead-intelligence.js"></script>
+    <script src="js_modules_market-intelligence.js"></script>
+    <script src="js_modules_mass-litigation.js"></script>
+    <script src="js_modules_neural-litigation.js"></script>
+    <script src="js_modules_platform-intel.js"></script>
+    <script src="js_modules_quantum-analytics.js"></script>
+    <script src="js_modules_risk-mitigation.js"></script>
+    <script src="js_modules_shadow-dossier.js"></script>
+    <script src="js_modules_strategic-vault.js"></script>
+    <script src="js_modules_value-efficiency.js"></script>
+    <script src="js_modules_fee-optimizer.js"></script>
+    <script src="js_modules_practice-dashboard.js"></script>
+    <script src="js_modules_forensic-vault.js"></script>
+    <script src="js_modules_wargaming-engine.js"></script>
+    <!-- Extensões -ext -->
+    <script src="js_modules_forensic-vault-ext.js"></script>
+    <script src="js_modules_fee-optimizer-ext.js"></script>
+    <script src="js_modules_practice-dashboard-ext.js"></script>
+    <script src="js_modules_platform-intel-ext.js"></script>
+    <script src="js_modules_black-swan-ext.js"></script>
+    <script src="js_modules_quantum-analytics-ext.js"></script>
+    <script src="js_modules_mass-litigation-ext.js"></script>
+    <script src="js_modules_ai-assistant-ext.js"></script>
+    <script src="js_modules_client-experience-ext.js"></script>
+    <script src="js_modules_gamification-ext.js"></script>
+    <script src="js_modules_market-intelligence-ext.js"></script>
+    <script src="js_modules_lead-intelligence-ext.js"></script>
+    <script src="js_modules_court-deadlines-ext.js"></script>
+    <script src="js_modules_judge-biometrics-ext.js"></script>
+    <script src="js_modules_judicial-analytics-ext.js"></script>
+    <script src="js_modules_neural-litigation-ext.js"></script>
+    <script src="js_modules_risk-mitigation-ext.js"></script>
+    <!-- Extensões -ext-ext -->
+    <script src="js_modules_platform-intel-ext-ext.js"></script>
+    <script src="js_modules_quantum-analytics-ext-ext.js"></script>
+    <script src="js_modules_mass-litigation-ext-ext.js"></script>
+    <script src="js_modules_lead-intelligence-ext-ext.js"></script>
+    <script src="js_modules_court-deadlines-ext-ext.js"></script>
+    <script src="js_modules_client-experience-ext-ext.js"></script>
+    <script src="js_modules_gamification-ext-ext.js"></script>
+    <script src="js_modules_market-intelligence-ext-ext.js"></script>
+    <script src="js_modules_practice-dashboard-ext-ext.js"></script>
+    <!-- Módulo de autenticação (último — depende de todos os outros) -->
+    <script src="js_auth.js"></script>
 </body>
 </html>
