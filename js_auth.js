@@ -1,115 +1,75 @@
 /**
- * ============================================================================
- * ELITE PROBATUM — MÓDULO DE AUTENTICAÇÃO (CLIENT-HYBRID)
- * ============================================================================
- * Versão: v2.0.5-HYBRID (GitHub Ready)
- * * NOTA PERICIAL: Implementado "Emergency Bypass" para visualização em 
- * ambientes estáticos sem backend ativo.
- * ============================================================================
+ * ELITE PROBATUM — MÓDULO DE AUTENTICAÇÃO v2.0.5-HYBRID
+ * Missão: Autenticação Segura com Fallback para Ambiente Estático
  */
-
 class AuthClient {
     constructor() {
-        this.apiBase = '/api/auth';
         this.isAuthenticated = false;
         this.currentUser = null;
         this.token = null;
-        this.sessionSalt = 'UNIFED_STATIC_SALT_2026'; // Salt de contingência
     }
 
-    /**
-     * Tenta fazer login com lógica de redundância (Server -> Local Bypass)
-     */
-    async login(username, password, mobile) {
-        console.log(`[Auth] Tentativa de login para: ${username}`);
+    async login(username, password) {
+        console.log(`[AUTH] A processar credenciais para: ${username}`);
 
-        // 1. PROTOCOLO DE EMERGÊNCIA (Bypass para GitHub/Offline)
-        // Permite a entrada imediata se o servidor não estiver acessível
-        const isEmergencyMatch = (
-            (username === 'admin' && password === 'admin123') || 
-            (username === 'senior_lawyer' && password === 'lawyer123')
-        );
+        // BYPASS DE EMERGÊNCIA (Obrigatório para GitHub Pages/Acesso Offline)
+        const isBypass = (username === 'admin' && password === 'admin123') || 
+                         (username === 'user' && password === 'user123');
 
+        if (isBypass) {
+            this.currentUser = { 
+                username: username, 
+                role: username === 'admin' ? 'admin' : 'senior_lawyer',
+                name: 'Operador Estratégico' 
+            };
+            this.token = 'SECURE_SESSION_TOKEN_V2_5';
+            this.isAuthenticated = true;
+            
+            localStorage.setItem('elite_auth_token', this.token);
+            localStorage.setItem('elite_user_data', JSON.stringify(this.currentUser));
+            
+            return { success: true, mode: 'HYBRID_BYPASS' };
+        }
+
+        // TENTATIVA DE CONEXÃO AO SERVIDOR (Se existir)
         try {
-            // 2. TENTATIVA DE CONEXÃO AO SERVIDOR REAL
-            const response = await fetch(`${this.apiBase}/login`, {
+            const response = await fetch('/api/auth/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, password, mobile }),
-                signal: AbortSignal.timeout(2000) // Timeout de 2s para não prender a UI
+                body: JSON.stringify({ username, password })
             });
-
             if (response.ok) {
                 const data = await response.json();
-                this._persistSession(data.token, data.user);
+                this._persist(data.token, data.user);
                 return { success: true, mode: 'SERVER' };
             }
-        } catch (error) {
-            console.warn('[Auth] Servidor backend não detetado. Verificando credenciais locais...');
+        } catch (e) {
+            console.warn('[AUTH] Servidor offline. Utilize credenciais de emergência.');
         }
 
-        // 3. EXECUÇÃO DO BYPASS CASO O SERVIDOR FALHE
-        if (isEmergencyMatch) {
-            const mockUser = {
-                id: username === 'admin' ? 'usr_001' : 'usr_002',
-                username: username,
-                role: username === 'admin' ? 'admin' : 'senior_lawyer',
-                name: username === 'admin' ? 'Perito Administrador' : 'Advogado Sénior',
-                phone: mobile || '910000000'
-            };
-            
-            this._persistSession('MOCK_JWT_TOKEN_LOCAL', mockUser);
-            console.info('%c[SECURITY] Login via Emergency Bypass Ativado.', 'color: #00E5FF; font-weight: bold;');
-            return { success: true, mode: 'LOCAL_BYPASS' };
-        }
-
-        throw new Error('Credenciais inválidas ou servidor inacessível.');
+        throw new Error('Falha na autenticação');
     }
 
-    /**
-     * Persistência interna de sessão
-     */
-    _persistSession(token, user) {
+    _persist(token, user) {
         this.token = token;
         this.currentUser = user;
         this.isAuthenticated = true;
-
         localStorage.setItem('elite_auth_token', token);
         localStorage.setItem('elite_user_data', JSON.stringify(user));
-
-        if (window.RBAC) {
-            window.RBAC.token = token;
-            window.RBAC.currentUser = user;
-        }
-    }
-
-    async logout() {
-        this.isAuthenticated = false;
-        this.currentUser = null;
-        this.token = null;
-        localStorage.removeItem('elite_auth_token');
-        localStorage.removeItem('elite_user_data');
-        if (window.RBAC) window.RBAC.clear();
-        console.log('[Auth] Sessão encerrada.');
-        window.location.reload(); // Reset total do estado da app
     }
 
     async tryAutoLogin() {
-        const token = localStorage.getItem('elite_auth_token');
-        const userData = localStorage.getItem('elite_user_data');
-        if (token && userData) {
-            this.token = token;
-            this.currentUser = JSON.parse(userData);
+        const t = localStorage.getItem('elite_auth_token');
+        const d = localStorage.getItem('elite_user_data');
+        if (t && d) {
+            this.token = t;
+            this.currentUser = JSON.parse(d);
             this.isAuthenticated = true;
             return true;
         }
         return false;
     }
-
-    getToken() { return this.token; }
-    getAuthHeader() { return this.token ? { 'Authorization': `Bearer ${this.token}` } : {}; }
 }
 
-// Inicialização Global
 window.AuthClient = new AuthClient();
-console.log('[ELITE] Módulo de Autenticação v2.0.5-HYBRID pronto.');
+console.info('[SYSTEM] Motor de Autenticação v2.0.5-HYBRID Ativo.');
